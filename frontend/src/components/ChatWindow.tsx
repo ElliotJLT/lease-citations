@@ -30,7 +30,7 @@ function ChatCard({
 	children: React.ReactNode;
 }) {
 	return (
-		<main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+		<main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card">
 			<header className="flex h-12 flex-shrink-0 items-center justify-between gap-3 border-b border-neutral-100 px-4">
 				<p className="truncate text-sm font-semibold text-neutral-800">
 					{title ?? "Document Q&A"}

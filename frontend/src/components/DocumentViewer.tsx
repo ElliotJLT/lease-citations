@@ -81,7 +81,7 @@ export function DocumentViewer({
 			<motion.div
 				animate={{ width: RAIL_WIDTH }}
 				transition={{ duration: 0.2, ease: "easeOut" }}
-				className="flex h-full flex-shrink-0 flex-col items-center overflow-hidden rounded-xl border border-neutral-200 bg-white"
+				className="flex h-full flex-shrink-0 flex-col items-center overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card"
 			>
 				<div className="flex h-12 w-full flex-shrink-0 items-center justify-center border-b border-neutral-100">
 					<Tooltip>
@@ -105,7 +105,7 @@ export function DocumentViewer({
 			<motion.div
 				animate={{ width }}
 				transition={{ duration: 0.2, ease: "easeOut" }}
-				className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white"
+				className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card"
 			>
 				<div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-neutral-100 px-2 pl-4">
 					<span className="text-sm font-semibold text-neutral-800">
@@ -137,7 +137,7 @@ export function DocumentViewer({
 			transition={
 				dragging ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }
 			}
-			className="relative flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white"
+			className="relative flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card"
 		>
 			{/* Resize handle */}
 			<div

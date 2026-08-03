@@ -37,7 +37,7 @@ export function ChatSidebar({
 		<motion.aside
 			animate={{ width: collapsed ? RAIL_WIDTH : EXPANDED_WIDTH }}
 			transition={{ duration: 0.2, ease: "easeOut" }}
-			className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white"
+			className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card"
 		>
 			<header
 				className={`flex h-12 flex-shrink-0 items-center border-b border-neutral-100 px-2 ${
@@ -121,7 +121,7 @@ export function ChatSidebar({
 											type="button"
 											className={`group flex w-full items-center rounded-lg px-3 py-2.5 text-left transition-colors ${
 												selectedId === conversation.id
-													? "bg-neutral-100"
+													? "bg-brand-soft"
 													: "hover:bg-neutral-50"
 											}`}
 											onClick={() => onSelect(conversation.id)}

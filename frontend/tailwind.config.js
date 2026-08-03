@@ -12,6 +12,10 @@ export default {
         },
         accent: "#ff6e30",    // orange — primary actions only
       },
+      boxShadow: {
+        // Tinted with the brand hue: a neutral black shadow over the pale ground reads as dirt.
+        card: "0 1px 2px rgba(0, 76, 97, 0.04), 0 4px 12px rgba(0, 76, 97, 0.05)",
+      },
       fontFamily: {
         sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
         serif: ['"IBM Plex Serif"', 'Georgia', 'serif'],

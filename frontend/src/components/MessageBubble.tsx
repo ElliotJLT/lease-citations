@@ -47,7 +47,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 			transition={{ duration: 0.2 }}
 			className="flex gap-3 py-1.5"
 		>
-			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-neutral-900">
+			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
 				<Bot className="h-4 w-4 text-white" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
@@ -72,7 +72,7 @@ interface StreamingBubbleProps {
 export function StreamingBubble({ content }: StreamingBubbleProps) {
 	return (
 		<div className="flex gap-3 py-1.5">
-			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-neutral-900">
+			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
 				<Bot className="h-4 w-4 text-white" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
