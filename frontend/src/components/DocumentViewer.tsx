@@ -81,18 +81,20 @@ export function DocumentViewer({
 			<motion.div
 				animate={{ width: RAIL_WIDTH }}
 				transition={{ duration: 0.2, ease: "easeOut" }}
-				className="flex h-full flex-shrink-0 flex-col items-center border-l border-neutral-200 bg-white pt-3"
+				className="flex h-full flex-shrink-0 flex-col items-center overflow-hidden rounded-xl border border-neutral-200 bg-white"
 			>
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button variant="ghost" size="icon" onClick={onToggleCollapse}>
-							<PanelRightOpen className="h-4 w-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent side="left">
-						{document ? `Show ${document.filename}` : "Show document"}
-					</TooltipContent>
-				</Tooltip>
+				<div className="flex h-12 w-full flex-shrink-0 items-center justify-center border-b border-neutral-100">
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button variant="ghost" size="icon" onClick={onToggleCollapse}>
+								<PanelRightOpen className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent side="left">
+							{document ? `Show ${document.filename}` : "Show document"}
+						</TooltipContent>
+					</Tooltip>
+				</div>
 				{document && <FileText className="mt-3 h-4 w-4 text-neutral-300" />}
 			</motion.div>
 		);
@@ -103,9 +105,12 @@ export function DocumentViewer({
 			<motion.div
 				animate={{ width }}
 				transition={{ duration: 0.2, ease: "easeOut" }}
-				className="flex h-full flex-shrink-0 flex-col border-l border-neutral-200 bg-neutral-50"
+				className="flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white"
 			>
-				<div className="flex items-center justify-end border-b border-neutral-100 px-2 py-2">
+				<div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-neutral-100 px-2 pl-4">
+					<span className="text-sm font-semibold text-neutral-800">
+						Document
+					</span>
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<Button variant="ghost" size="icon" onClick={onToggleCollapse}>
@@ -132,7 +137,7 @@ export function DocumentViewer({
 			transition={
 				dragging ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }
 			}
-			className="relative flex h-full flex-shrink-0 flex-col border-l border-neutral-200 bg-white"
+			className="relative flex h-full flex-shrink-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white"
 		>
 			{/* Resize handle */}
 			<div
@@ -143,7 +148,7 @@ export function DocumentViewer({
 			/>
 
 			{/* Header */}
-			<div className="flex items-center justify-between gap-2 border-b border-neutral-100 py-2 pr-2 pl-4">
+			<div className="flex h-12 flex-shrink-0 items-center justify-between gap-2 border-b border-neutral-100 pr-2 pl-4">
 				<div className="min-w-0">
 					<p className="truncate text-sm font-medium text-neutral-800">
 						{document.filename}

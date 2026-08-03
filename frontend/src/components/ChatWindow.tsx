@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Message } from "../types";
 import { ChatInput } from "./ChatInput";
@@ -13,8 +13,38 @@ interface ChatWindowProps {
 	streamingContent: string;
 	hasDocument: boolean;
 	conversationId: string | null;
+	title: string | null;
+	documentName: string | null;
 	onSend: (content: string) => void;
 	onUpload: (file: File) => void;
+}
+
+/** The card the conversation lives in, so every state below shares one frame. */
+function ChatCard({
+	title,
+	documentName,
+	children,
+}: {
+	title: string | null;
+	documentName: string | null;
+	children: React.ReactNode;
+}) {
+	return (
+		<main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+			<header className="flex h-12 flex-shrink-0 items-center justify-between gap-3 border-b border-neutral-100 px-4">
+				<p className="truncate text-sm font-semibold text-neutral-800">
+					{title ?? "Document Q&A"}
+				</p>
+				{documentName && (
+					<span className="flex min-w-0 flex-shrink-0 items-center gap-1.5 text-xs text-neutral-400">
+						<FileText className="h-3.5 w-3.5" />
+						<span className="max-w-[220px] truncate">{documentName}</span>
+					</span>
+				)}
+			</header>
+			{children}
+		</main>
+	);
 }
 
 export function ChatWindow({
@@ -25,6 +55,8 @@ export function ChatWindow({
 	streamingContent,
 	hasDocument,
 	conversationId,
+	title,
+	documentName,
 	onSend,
 	onUpload,
 }: ChatWindowProps) {
@@ -42,36 +74,36 @@ export function ChatWindow({
 	// No conversation selected
 	if (!conversationId) {
 		return (
-			<div className="flex flex-1 items-center justify-center bg-neutral-50">
-				<div className="text-center">
+			<ChatCard title={null} documentName={null}>
+				<div className="flex flex-1 items-center justify-center">
 					<p className="text-sm text-neutral-400">
-						Select a conversation or create a new one
+						Select a conversation, or start a new one
 					</p>
 				</div>
-			</div>
+			</ChatCard>
 		);
 	}
 
 	// Loading messages
 	if (loading) {
 		return (
-			<div className="flex flex-1 items-center justify-center bg-white">
-				<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
-			</div>
+			<ChatCard title={title} documentName={documentName}>
+				<div className="flex flex-1 items-center justify-center">
+					<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+				</div>
+			</ChatCard>
 		);
 	}
 
 	// Empty conversation - show upload prompt
 	if (messages.length === 0 && !streaming) {
 		return (
-			<div className="flex flex-1 flex-col bg-white">
+			<ChatCard title={title} documentName={documentName}>
 				<div className="flex flex-1 items-center justify-center">
 					{hasDocument ? (
-						<div className="text-center">
-							<p className="text-sm text-neutral-500">
-								Document uploaded. Ask a question to get started.
-							</p>
-						</div>
+						<p className="text-sm text-neutral-500">
+							Document uploaded. Ask a question to get started.
+						</p>
 					) : (
 						<EmptyState onUpload={onUpload} />
 					)}
@@ -82,12 +114,12 @@ export function ChatWindow({
 					disabled={streaming}
 					hasDocument={hasDocument}
 				/>
-			</div>
+			</ChatCard>
 		);
 	}
 
 	return (
-		<div className="flex flex-1 flex-col bg-white">
+		<ChatCard title={title} documentName={documentName}>
 			{error && (
 				<div className="mx-4 mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
 					{error}
@@ -109,6 +141,6 @@ export function ChatWindow({
 				disabled={streaming}
 				hasDocument={hasDocument}
 			/>
-		</div>
+		</ChatCard>
 	);
 }

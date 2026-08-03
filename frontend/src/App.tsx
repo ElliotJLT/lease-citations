@@ -63,7 +63,9 @@ export default function App() {
 
 	return (
 		<TooltipProvider delayDuration={200}>
-			<div className="flex h-screen bg-neutral-50">
+			{/* Three cards on a ground, rather than panels butted together: each region reads as
+			    its own surface, and folding one away leaves the others intact. */}
+			<div className="flex h-screen gap-3 bg-neutral-100 p-3">
 				<ChatSidebar
 					conversations={conversations}
 					selectedId={selectedId}
@@ -83,6 +85,8 @@ export default function App() {
 					streamingContent={streamingContent}
 					hasDocument={!!document}
 					conversationId={selectedId}
+					title={conversations.find((c) => c.id === selectedId)?.title ?? null}
+					documentName={document?.filename ?? null}
 					onSend={handleSend}
 					onUpload={handleUpload}
 				/>
