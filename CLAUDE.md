@@ -59,8 +59,14 @@ the asbestos question yields zero chips and the honest empty state; the verifier
 
 ## Design rules
 
-- Extend the app's existing language — IBM Plex, neutral palette, hairline borders. No
-  re-theming, no generic AI aesthetics.
+- Extend the app's existing language — IBM Plex, hairline borders, no generic AI aesthetics.
+- Palette is sampled from orbital.tech, not invented: `ground` #ddf8ff (pale ice, the surface
+  the cards sit on), `brand` #006a87 (deep teal), `accent` #ff6e30 (orange). Reading surfaces
+  stay white — the ground is a frame, never something text sits on.
+- Colour carries one meaning each: teal is structure and verified evidence, orange is primary
+  actions and nothing else. An unverified citation is deliberately colourless — a dashed
+  border and an icon — so it reads as "unconfirmed", not as an error, and never competes with
+  the accent.
 - Verified vs unverified is structural (icon + border), never colour alone.
 - Verbatim quotes render in IBM Plex Serif italic; serif is reserved for words the document
   actually says. UI copy stays sans.

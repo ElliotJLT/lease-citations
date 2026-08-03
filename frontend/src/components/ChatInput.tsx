@@ -112,9 +112,7 @@ export function ChatInput({
 				>
 					<SendHorizontal
 						className={`h-4 w-4 ${
-							value.trim() && !disabled
-								? "text-neutral-900"
-								: "text-neutral-300"
+							value.trim() && !disabled ? "text-accent" : "text-neutral-300"
 						}`}
 					/>
 				</Button>

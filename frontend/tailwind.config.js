@@ -3,6 +3,15 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      colors: {
+        // Sampled from orbital.tech — their own light surface, not a re-theme.
+        ground: "#ddf8ff",   // pale ice; the ground the cards sit on
+        brand: {
+          DEFAULT: "#006a87", // deep teal — structure, and the colour of verified evidence
+          soft: "#e6f4f8",    // teal at low strength, for verified chip fills
+        },
+        accent: "#ff6e30",    // orange — primary actions only
+      },
       fontFamily: {
         sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
         serif: ['"IBM Plex Serif"', 'Georgia', 'serif'],
