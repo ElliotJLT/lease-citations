@@ -1,4 +1,12 @@
-import { ChevronLeft, ChevronRight, FileText, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+	ChevronLeft,
+	ChevronRight,
+	FileText,
+	Loader2,
+	PanelRightClose,
+	PanelRightOpen,
+} from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Document as PDFDocument, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -6,6 +14,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 import { getDocumentUrl } from "../lib/api";
 import type { Document } from "../types";
 import { Button } from "./ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 	"pdfjs-dist/build/pdf.worker.min.mjs",
@@ -15,12 +24,19 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 700;
 const DEFAULT_WIDTH = 400;
+const RAIL_WIDTH = 52;
 
 interface DocumentViewerProps {
 	document: Document | null;
+	collapsed: boolean;
+	onToggleCollapse: () => void;
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
+export function DocumentViewer({
+	document,
+	collapsed,
+	onToggleCollapse,
+}: DocumentViewerProps) {
 	const [numPages, setNumPages] = useState<number>(0);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [pdfLoading, setPdfLoading] = useState(true);
@@ -60,24 +76,62 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 
 	const pdfPageWidth = width - 48; // account for px-4 padding on each side
 
+	if (collapsed) {
+		return (
+			<motion.div
+				animate={{ width: RAIL_WIDTH }}
+				transition={{ duration: 0.2, ease: "easeOut" }}
+				className="flex h-full flex-shrink-0 flex-col items-center border-l border-neutral-200 bg-white pt-3"
+			>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button variant="ghost" size="icon" onClick={onToggleCollapse}>
+							<PanelRightOpen className="h-4 w-4" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="left">
+						{document ? `Show ${document.filename}` : "Show document"}
+					</TooltipContent>
+				</Tooltip>
+				{document && <FileText className="mt-3 h-4 w-4 text-neutral-300" />}
+			</motion.div>
+		);
+	}
+
 	if (!document) {
 		return (
-			<div
-				style={{ width }}
-				className="flex h-full flex-shrink-0 flex-col items-center justify-center border-l border-neutral-200 bg-neutral-50"
+			<motion.div
+				animate={{ width }}
+				transition={{ duration: 0.2, ease: "easeOut" }}
+				className="flex h-full flex-shrink-0 flex-col border-l border-neutral-200 bg-neutral-50"
 			>
-				<FileText className="mb-3 h-10 w-10 text-neutral-300" />
-				<p className="text-sm text-neutral-400">No document uploaded</p>
-			</div>
+				<div className="flex items-center justify-end border-b border-neutral-100 px-2 py-2">
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button variant="ghost" size="icon" onClick={onToggleCollapse}>
+								<PanelRightClose className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent side="left">Hide panel</TooltipContent>
+					</Tooltip>
+				</div>
+				<div className="flex flex-1 flex-col items-center justify-center">
+					<FileText className="mb-3 h-10 w-10 text-neutral-300" />
+					<p className="text-sm text-neutral-400">No document uploaded</p>
+				</div>
+			</motion.div>
 		);
 	}
 
 	const pdfUrl = getDocumentUrl(document.id);
 
 	return (
-		<div
+		<motion.div
 			ref={containerRef}
-			style={{ width }}
+			animate={{ width }}
+			transition={
+				dragging ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }
+			}
 			className="relative flex h-full flex-shrink-0 flex-col border-l border-neutral-200 bg-white"
 		>
 			{/* Resize handle */}
@@ -89,7 +143,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 			/>
 
 			{/* Header */}
-			<div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+			<div className="flex items-center justify-between gap-2 border-b border-neutral-100 py-2 pr-2 pl-4">
 				<div className="min-w-0">
 					<p className="truncate text-sm font-medium text-neutral-800">
 						{document.filename}
@@ -98,6 +152,19 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 						{document.page_count} page{document.page_count !== 1 ? "s" : ""}
 					</p>
 				</div>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="flex-shrink-0"
+							onClick={onToggleCollapse}
+						>
+							<PanelRightClose className="h-4 w-4" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent side="left">Hide document</TooltipContent>
+				</Tooltip>
 			</div>
 
 			{/* PDF content */}
@@ -165,6 +232,6 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
 					</Button>
 				</div>
 			)}
-		</div>
+		</motion.div>
 	);
 }

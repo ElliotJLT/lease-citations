@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { DocumentViewer } from "./components/DocumentViewer";
@@ -8,6 +8,11 @@ import { useDocument } from "./hooks/use-document";
 import { useMessages } from "./hooks/use-messages";
 
 export default function App() {
+	// Panels hand width to each other as the work moves from asking to verifying: fold the
+	// conversation list away while reading an answer, fold the reader away while composing.
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+	const [readerCollapsed, setReaderCollapsed] = useState(false);
+
 	const {
 		conversations,
 		selectedId,
@@ -63,9 +68,11 @@ export default function App() {
 					conversations={conversations}
 					selectedId={selectedId}
 					loading={conversationsLoading}
+					collapsed={sidebarCollapsed}
 					onSelect={select}
 					onCreate={handleCreate}
 					onDelete={remove}
+					onToggleCollapse={() => setSidebarCollapsed((open) => !open)}
 				/>
 
 				<ChatWindow
@@ -80,7 +87,11 @@ export default function App() {
 					onUpload={handleUpload}
 				/>
 
-				<DocumentViewer document={document} />
+				<DocumentViewer
+					document={document}
+					collapsed={readerCollapsed}
+					onToggleCollapse={() => setReaderCollapsed((open) => !open)}
+				/>
 			</div>
 		</TooltipProvider>
 	);
