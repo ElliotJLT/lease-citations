@@ -55,6 +55,8 @@ known-first-party = ["takehome"]
 
 [tool.pyright]
 pythonVersion = "3.12"
+# PyMuPDF and pydantic-ai ship no stubs; missing third-party stubs are not a code defect.
+reportMissingTypeStubs = false
 typeCheckingMode = "strict"
 extraPaths = ["backend/src"]
 

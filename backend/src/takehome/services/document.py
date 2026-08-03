@@ -68,7 +68,8 @@ async def upload_document(
         pages: list[str] = []
         for page_num in range(page_count):
             page = doc[page_num]
-            text = page.get_text()  # type: ignore[union-attr]
+            # PyMuPDF ships no type stubs; get_text() returns str for the default "text" mode.
+            text = str(page.get_text())  # type: ignore[union-attr]
             if text.strip():
                 pages.append(f"--- Page {page_num + 1} ---\n{text}")
         extracted_text = "\n\n".join(pages)

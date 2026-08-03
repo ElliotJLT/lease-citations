@@ -80,6 +80,14 @@ compose, breaks anywhere else. → Noted; left as-is to keep the diff on-thesis.
 → This build adds the repo's first tests, on the one component that claims correctness: the
 citation verifier.
 
+## F8 — The documented quality gate doesn't pass
+
+`just check` is the repo's own definition of clean, and on the untouched baseline it fails:
+three ruff errors (an unsorted import block, two exception re-raises missing `from`) and five
+pyright errors (PyMuPDF ships no type stubs; `page.get_text()` is untyped). A gate that is red
+on arrival can't be used to hold anything to a standard. → Fixed in this build, so the gate
+means something for every commit after it.
+
 ## What the baseline gets right
 
 Kept deliberately. The three-panel layout (conversations / chat / reader) is the correct
