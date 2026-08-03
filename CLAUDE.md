@@ -56,6 +56,14 @@ the asbestos question yields zero chips and the honest empty state; the verifier
 - Never ship a trust signal the system cannot back with evidence. A badge, count or tick must
   derive from a check against the document, or it doesn't render.
 - "The document doesn't say" is a first-class result, not a failure state.
+- Evidence is judged on completeness as well as support. A legal position usually rests on
+  more than the sentence that states it — the operative clause, a definition, a condition or
+  exception elsewhere. The prompt asks for that full set, and the chips make the composition
+  visible.
+- The interface renders only trust states it can check: quote found, quote not found, no
+  evidence offered. The model's account of its own reasoning ("inferred", "confident") is
+  never rendered as a trust state — that's a self-report, the same failure class as the badge
+  this build removed.
 
 ## Design rules
 

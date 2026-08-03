@@ -18,6 +18,13 @@ was any way for the lawyer to *know* that without re-reading the document, which
 the tool exists to remove. Due diligence is a verification job; this build prices verifying a
 claim at one click instead of one document.
 
+One refinement matters beyond correctness: citation accuracy is not legal completeness. "The
+tenant may assign with consent" can be perfectly supported by clause 7.1.1 and still be
+dangerous advice if the conditions in 7.1.2 aren't on the table. So the prompt requires the
+evidence for an answer to span what the position depends on — operative clause, definitions,
+conditions and exceptions — and the chips make that composition visible rather than treating
+one passage as sufficient.
+
 ## Why this over the other options
 
 Multi-document support was the loudest alternative — the brief's users handle dozens of
@@ -29,6 +36,17 @@ UI overhaul I ruled out as polish without a thesis, and chunking/RAG solves a sc
 these document sizes don't have yet. I did fix one thing off-thesis: the shipped
 `.env.example` crashes the backend on current dependency resolutions (F5), and a reviewer's
 first `just dev` failing is worth two lines and a lockfile.
+
+Other directions considered and set aside, with the reason each lost:
+
+| Considered | Why not now |
+|---|---|
+| Multi-document deal room | The citation model is its foundation — evidence loop first, then scale it |
+| Per-sentence evidence binding (hover a claim → highlight its clause) | The right v2 on this schema; a mis-bound highlight damages trust more than chips build it, so it needs care the time budget doesn't allow |
+| "Directly stated vs inferred" labels on answers | A model's account of its own reasoning is an unverifiable self-report — the same failure class as the badge this build removes. The interface renders only states it can check |
+| Typed evidence trail (citations categorised definition / condition / cross-reference) | Adopted at the substance level — the prompt requires citing the full set of provisions a position depends on, and labels already read "Definition: Review Dates" — but typed categories and grouped navigation are v2 polish on the same schema |
+| Contradiction detection | Secondary to grounding, and needs the evidence loop anyway |
+| Risk scoring, drafting, redlining, agentic review | Different jobs; none reduce verification cost |
 
 ## What I'd do next
 
