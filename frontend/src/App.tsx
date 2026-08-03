@@ -66,7 +66,7 @@ export default function App() {
 			{/* Three cards on a ground, rather than panels butted together: each region reads as
 			    its own surface, and folding one away leaves the others intact. The ground is
 			    Orbital's own pale ice; reading surfaces stay white. */}
-			<div className="flex h-screen gap-3 bg-ground p-3">
+			<div className="flex h-screen gap-4 bg-ground p-4">
 				<ChatSidebar
 					conversations={conversations}
 					selectedId={selectedId}
