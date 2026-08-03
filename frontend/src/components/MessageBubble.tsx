@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { Bot } from "lucide-react";
 import { Streamdown } from "streamdown";
+import { OrbitalMark } from "./OrbitalMark";
 import "streamdown/styles.css";
 import type { Message } from "../types";
 
@@ -48,7 +48,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 			className="flex gap-3 py-1.5"
 		>
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<Bot className="h-4 w-4 text-white" />
+				<OrbitalMark className="h-3.5 w-3.5 text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				<div className="prose">
@@ -73,7 +73,7 @@ export function StreamingBubble({ content }: StreamingBubbleProps) {
 	return (
 		<div className="flex gap-3 py-1.5">
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<Bot className="h-4 w-4 text-white" />
+				<OrbitalMark className="h-3.5 w-3.5 text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				{content ? (
