@@ -89,6 +89,19 @@ Counter-metric: clicks trending to zero is ambiguous (earned trust vs rubber-sta
 usage with a periodic grounding eval over known documents. That harness is first in
 `DECISIONS.md` → next steps.
 
+## Model routing
+
+Two separate decisions, deliberately made:
+
+- **Dev-time (building this repo).** Planning, audit and spec ran on the top reasoning tier
+  (Claude Fable 5) because every later decision inherits from them. Implementation runs on
+  Opus 5 — the agentic-coding sweet spot at half the per-token cost — against this file as
+  the binding spec. Mechanical fixes can drop a tier further. Route by task, not by default.
+- **Runtime (what the product calls).** The app keeps its existing Haiku 4.5 for chat and
+  citation extraction. The citation verifier is a string match against the document — it
+  doesn't trust the model — so model tier is a cost/latency knob here, not a trust knob.
+  Buying trust with a bigger model is the exact mistake this build exists to remove.
+
 ## Verify before done
 
 - `just check` and `pytest` pass before every commit.
