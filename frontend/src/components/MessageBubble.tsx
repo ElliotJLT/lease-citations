@@ -48,7 +48,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 			className="flex gap-3 py-1.5"
 		>
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<OrbitalMark className="h-3.5 w-3.5 text-accent" />
+				<OrbitalMark className="h-5 w-auto text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				<div className="prose">
@@ -73,7 +73,7 @@ export function StreamingBubble({ content }: StreamingBubbleProps) {
 	return (
 		<div className="flex gap-3 py-1.5">
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<OrbitalMark className="h-3.5 w-3.5 text-accent" />
+				<OrbitalMark className="h-5 w-auto text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				{content ? (
