@@ -52,6 +52,8 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["takehome"]
+# The local alembic/ directory otherwise makes isort read the package as first-party.
+known-third-party = ["alembic"]
 
 [tool.pyright]
 pythonVersion = "3.12"
