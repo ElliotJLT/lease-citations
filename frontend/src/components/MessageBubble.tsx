@@ -62,8 +62,13 @@ export function MessageBubble({ message, onCitationJump }: MessageBubbleProps) {
 						onJump={onCitationJump}
 					/>
 				) : (
-					<p className="mt-1.5 text-xs text-neutral-400">
-						No supporting passages offered for this answer.
+					/* Precise about what was established: nothing was offered and nothing
+						   matched. Not that the document is silent — that isn't checkable. */
+					<p className="mt-2 text-xs text-neutral-400">
+						<span className="font-medium text-neutral-500">
+							No supporting provision identified.
+						</span>{" "}
+						No passage in this document was matched to this answer.
 					</p>
 				)}
 			</div>

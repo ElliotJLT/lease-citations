@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertCircle, Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import type { Citation } from "../types";
+import type { Citation, TrailItem } from "../types";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface CitationChipsProps {
@@ -9,154 +9,193 @@ interface CitationChipsProps {
 	onJump: (citation: Citation) => void;
 }
 
-function quotePreview(quote: string, max = 140): string {
-	return quote.length > max ? `${quote.slice(0, max).trimEnd()}…` : quote;
+/** Compare clause labels ignoring case and the "Clause "/"Definition: " prefixes. */
+function labelKey(label: string): string {
+	return label
+		.toLowerCase()
+		.replace(/^(clause|schedule|paragraph|definition:)\s*/, "")
+		.trim();
+}
+
+function preview(text: string, max = 180): string {
+	return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
 }
 
 /**
- * Evidence for an answer's claims. Verified citations (a quote the server located in the
- * document) jump the reader to the passage; unverified ones (offered but not found) stay in
- * place — there's nowhere to send the lawyer — but still expand, so they can see and judge
- * what the model claimed. Dual-mode per chip: hover previews the quote, click on the label
- * commits to the document, the chevron is a separate target that expands it inline.
+ * Evidence for an answer, and only what the system can actually establish about it.
+ *
+ * Three states, deliberately unequal in weight:
+ *  - **Matched** — this wording was located in the document, at this page. Peers, in the order
+ *    the model offered them; none is promoted to "primary", because citation order is not a
+ *    claim about which passage matters most.
+ *  - **Read alongside** — definitions and cross-references the matched passage explicitly
+ *    names, resolved from the document. Deduplicated against the matched list, so a clause the
+ *    model already cited doesn't appear twice.
+ *  - **Not located** — offered by the model, not found. Given its own block rather than a
+ *    greyed-out peer, because it's the state a lawyer most needs to notice.
+ *
+ * The wording throughout is "matched" and "located", never "verified": what's established is
+ * that a passage exists at a place, not that the answer built on it is correct.
  */
 export function CitationChips({ citations, onJump }: CitationChipsProps) {
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 
-	if (citations.length === 0) return null;
+	const matched = citations.filter((c) => c.verified);
+	const unresolved = citations.filter((c) => !c.verified);
+	if (matched.length === 0 && unresolved.length === 0) return null;
+
+	const matchedKeys = new Set(matched.map((c) => labelKey(c.label)));
+
+	/** Send the reader to a related provision, using the document's own wording as the target. */
+	const jumpToTrailItem = (source: Citation, item: TrailItem) =>
+		onJump({
+			id: `${source.id}-${item.kind}-${item.label}`,
+			label: item.label,
+			quote: item.text,
+			page: item.page,
+			verified: true,
+			trail: [],
+		});
 
 	return (
 		<motion.div
 			initial={{ opacity: 0, y: 4 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.2, delay: 0.1 }}
-			className="mt-2 flex flex-col gap-1.5"
+			className="mt-2.5 flex flex-col gap-2"
 		>
-			<div className="flex flex-wrap gap-1.5">
-				{citations.map((citation) => {
-					const isExpanded = expandedId === citation.id;
-					return (
-						<Tooltip key={citation.id}>
-							<TooltipTrigger asChild>
-								<div
-									className={`inline-flex items-stretch overflow-hidden rounded-full border text-xs font-medium ${
-										citation.verified
-											? "border-brand/20 bg-brand-soft text-brand"
-											: "border-dashed border-neutral-300 text-neutral-400"
-									}`}
-								>
-									<button
-										type="button"
-										disabled={!citation.verified}
-										onClick={() => onJump(citation)}
-										className={`flex items-center gap-1 py-1 pr-1.5 pl-2.5 ${
-											citation.verified
-												? "cursor-pointer hover:bg-brand/10"
-												: "cursor-default"
-										}`}
-									>
-										{citation.verified ? (
-											<ShieldCheck className="h-3 w-3 flex-shrink-0" />
-										) : (
-											<ShieldAlert className="h-3 w-3 flex-shrink-0" />
-										)}
-										<span>{citation.label}</span>
-										{citation.verified && citation.page != null && (
-											<span className="text-brand/60">· p.{citation.page}</span>
-										)}
-									</button>
-									<button
-										type="button"
-										onClick={() =>
-											setExpandedId(isExpanded ? null : citation.id)
-										}
-										aria-label={
-											isExpanded ? "Collapse quote" : "Show quoted passage"
-										}
-										className={`flex items-center border-l pr-2 pl-1 ${
-											citation.verified
-												? "border-brand/20 hover:bg-brand/10"
-												: "border-neutral-200 hover:bg-neutral-100"
-										}`}
-									>
-										<ChevronRight
-											className={`h-3 w-3 transition-transform duration-150 ${
-												isExpanded ? "rotate-90" : ""
-											}`}
-										/>
-									</button>
-								</div>
-							</TooltipTrigger>
-							<TooltipContent side="top" className="max-w-xs">
-								{citation.verified
-									? `"${quotePreview(citation.quote)}"`
-									: "Couldn't locate this quote in the document — treat it as unconfirmed."}
-							</TooltipContent>
-						</Tooltip>
-					);
-				})}
-			</div>
+			<p className="text-[11px] text-neutral-400">
+				{matched.length} {matched.length === 1 ? "passage" : "passages"} matched
+				in this document
+				{unresolved.length > 0 && ` · ${unresolved.length} not located`}
+			</p>
+
+			{matched.length > 0 && (
+				<div className="flex flex-wrap gap-1.5">
+					{matched.map((citation) => {
+						const isExpanded = expandedId === citation.id;
+						return (
+							<Tooltip key={citation.id}>
+								<TooltipTrigger asChild>
+									<div className="inline-flex items-stretch overflow-hidden rounded-full border border-brand/20 bg-brand-soft font-medium text-brand text-xs">
+										<button
+											type="button"
+											onClick={() => onJump(citation)}
+											className="flex cursor-pointer items-center gap-1 py-1 pr-1.5 pl-2.5 hover:bg-brand/10"
+										>
+											<Check className="h-3 w-3 flex-shrink-0" />
+											<span>{citation.label}</span>
+											{citation.page != null && (
+												<span className="text-brand/60">
+													· p.{citation.page}
+												</span>
+											)}
+										</button>
+										<button
+											type="button"
+											onClick={() =>
+												setExpandedId(isExpanded ? null : citation.id)
+											}
+											aria-label={
+												isExpanded
+													? "Hide passage"
+													: "Show passage and related provisions"
+											}
+											className="flex items-center border-brand/20 border-l pr-2 pl-1 hover:bg-brand/10"
+										>
+											<ChevronRight
+												className={`h-3 w-3 transition-transform duration-150 ${
+													isExpanded ? "rotate-90" : ""
+												}`}
+											/>
+										</button>
+									</div>
+								</TooltipTrigger>
+								<TooltipContent side="top" className="max-w-sm">
+									Matched at page {citation.page} — click to open it in the
+									document
+								</TooltipContent>
+							</Tooltip>
+						);
+					})}
+				</div>
+			)}
 
 			<AnimatePresence initial={false}>
-				{citations.map((citation) =>
-					expandedId === citation.id ? (
+				{matched.map((citation) => {
+					if (expandedId !== citation.id) return null;
+					// A related provision the model already cited itself is not "related" —
+					// it's a peer, and already a chip above.
+					const related = citation.trail.filter(
+						(item) => !matchedKeys.has(labelKey(item.label)),
+					);
+					return (
 						<motion.div
 							key={citation.id}
 							initial={{ opacity: 0, height: 0 }}
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.15 }}
-							className={`overflow-hidden rounded-lg border ${
-								citation.verified
-									? "border-neutral-100 bg-neutral-50"
-									: "border-dashed border-neutral-200"
-							}`}
+							className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
 						>
-							<p
-								className={`px-3 py-2 font-serif text-sm italic ${
-									citation.verified ? "text-neutral-700" : "text-neutral-500"
-								}`}
-							>
-								"{citation.quote}"
+							<p className="px-3 py-2 font-serif text-[13px] text-neutral-600 italic leading-relaxed">
+								"{preview(citation.quote)}"
 							</p>
 
-							{/* What the passage depends on. A clause can be quoted accurately and still
-							    not be the whole position — this is the list a lawyer would write in
-							    the margin as "read with". Absent entirely when nothing resolves. */}
-							{citation.trail.length > 0 && (
+							{related.length > 0 && (
 								<div className="border-neutral-200/70 border-t px-3 py-2">
-									<p className="mb-1.5 font-medium text-[11px] text-neutral-400 uppercase tracking-wide">
-										Read with
+									<p className="mb-1.5 font-medium text-[10px] text-neutral-400 uppercase tracking-wide">
+										Read alongside
 									</p>
-									<ul className="flex flex-col gap-1.5">
-										{citation.trail.map((item) => (
-											<li
-												key={`${item.kind}-${item.label}`}
-												className="text-xs"
-											>
-												<span className="font-medium text-neutral-600">
-													{item.kind === "definition"
-														? `Definition: ${item.label}`
-														: item.label}
-												</span>
-												{item.page != null && (
-													<span className="text-neutral-400">
-														{" "}
-														· p.{item.page}
-													</span>
-												)}
-												<span className="block text-neutral-500">
-													{item.text}
-												</span>
-											</li>
+									<div className="flex flex-wrap gap-1.5">
+										{related.map((item) => (
+											<Tooltip key={`${item.kind}-${item.label}`}>
+												<TooltipTrigger asChild>
+													<button
+														type="button"
+														onClick={() => jumpToTrailItem(citation, item)}
+														className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:border-brand/30 hover:text-brand"
+													>
+														<span className="font-medium">{item.label}</span>
+														<span className="text-neutral-400">
+															{item.kind === "definition"
+																? "defined term"
+																: "cross-reference"}
+															{item.page != null && ` · p.${item.page}`}
+														</span>
+													</button>
+												</TooltipTrigger>
+												<TooltipContent side="top" className="max-w-sm">
+													{preview(item.text, 200)}
+												</TooltipContent>
+											</Tooltip>
 										))}
-									</ul>
+									</div>
 								</div>
 							)}
 						</motion.div>
-					) : null,
-				)}
+					);
+				})}
 			</AnimatePresence>
+
+			{unresolved.length > 0 && (
+				<div className="rounded-lg border border-neutral-300 border-dashed px-3 py-2">
+					<p className="mb-1 flex items-center gap-1.5 font-medium text-[11px] text-neutral-500 uppercase tracking-wide">
+						<AlertCircle className="h-3 w-3" />
+						Not located
+					</p>
+					{unresolved.map((citation) => (
+						<p key={citation.id} className="text-neutral-500 text-xs">
+							The answer referenced{" "}
+							<span className="font-medium text-neutral-700">
+								{citation.label}
+							</span>
+							, but no matching passage was found in this document. Check the
+							source before relying on it.
+						</p>
+					))}
+				</div>
+			)}
 		</motion.div>
 	);
 }
