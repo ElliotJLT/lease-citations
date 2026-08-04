@@ -25,10 +25,15 @@ function preview(text: string, max = 180): string {
 /**
  * Evidence for an answer, and only what the system can actually establish about it.
  *
+ * Grouped by the proposition each source was offered for, because that is the grain at which
+ * a lawyer can judge the model's binding. "5 matched" across a whole answer tells them nothing
+ * about which sentence they can rely on.
+ *
  * Three states, deliberately unequal in weight:
- *  - **Matched** — this wording was located in the document, at this page. Peers, in the order
- *    the model offered them; none is promoted to "primary", because citation order is not a
- *    claim about which passage matters most.
+ *  - **Matched source** — this wording was found in the document, at this page. It does not
+ *    mean the proposition is correct, or that this passage supports it; the tick is never the
+ *    only carrier of that meaning, which is why the section and the per-claim line say it in
+ *    words. Peers, in the order offered; none is promoted to "primary".
  *  - **Read alongside** — definitions and cross-references the matched passage explicitly
  *    names, resolved from the document. Deduplicated against the matched list, so a clause the
  *    model already cited doesn't appear twice.
@@ -51,7 +56,7 @@ export function CitationChips({
 
 	const matchedKeys = new Set(matched.map((c) => labelKey(c.label)));
 
-	const byId = new Map(matched.map((c) => [c.id, c]));
+	const byId = new Map(citations.map((c) => [c.id, c]));
 	// Claims the model bound to at least one passage that survived verification. Where it
 	// supplied no bindings — older contract, or it ignored the instruction — fall back to a
 	// single ungrouped set rather than inventing a structure.
@@ -68,13 +73,17 @@ export function CitationChips({
 	const groupedIds = new Set(
 		claimGroups.flatMap((g) => g.citations.map((c) => c.id)),
 	);
-	const ungrouped = matched.filter((c) => !groupedIds.has(c.id));
+	const ungrouped = citations.filter((c) => !groupedIds.has(c.id));
 	const groups = [
 		...claimGroups,
 		...(ungrouped.length > 0
 			? [{ key: "__ungrouped", claim: null, citations: ungrouped }]
 			: []),
 	];
+
+	// Unresolved sources no claim referenced — otherwise they're shown against the
+	// proposition they undermine, which is where they mean something.
+	const ungroupedUnresolved = ungrouped.filter((c) => !c.verified);
 
 	/** Send the reader to a related provision, using the document's own wording as the target. */
 	const jumpToTrailItem = (source: Citation, item: TrailItem) =>
@@ -94,74 +103,109 @@ export function CitationChips({
 			transition={{ duration: 0.2, delay: 0.1 }}
 			className="mt-2.5 flex flex-col gap-2"
 		>
-			<p className="text-[11px] text-neutral-400">
-				{matched.length} {matched.length === 1 ? "passage" : "passages"} matched
-				in this document
-				{unresolved.length > 0 && ` · ${unresolved.length} not located`}
-			</p>
+			<div className="flex flex-col gap-0.5">
+				<p className="font-medium text-[11px] text-neutral-500 uppercase tracking-wide">
+					Sources offered for this answer
+				</p>
+				<p className="text-[11px] text-neutral-400">
+					{matched.length} matched in this document
+					{unresolved.length > 0 && ` · ${unresolved.length} not located`}
+				</p>
+			</div>
 
 			{/* Grouped by the proposition each passage was offered for, where the model
 			    supplied that binding. It's the model's own mapping, not a checked one —
 			    but at this grain a lawyer can judge it, which they can't for a whole answer. */}
-			{groups.map((group) => (
-				<div key={group.key} className="flex flex-col gap-1.5">
-					{group.claim && (
-						<p className="text-[13px] text-neutral-600 leading-snug">
-							{group.claim.text}
-						</p>
-					)}
-					<div
-						className={`flex flex-wrap gap-1.5 ${group.claim ? "pl-3" : ""}`}
-					>
-						{group.citations.map((citation) => {
-							const isExpanded = expandedId === citation.id;
-							return (
-								<Tooltip key={citation.id}>
-									<TooltipTrigger asChild>
-										<div className="inline-flex items-stretch overflow-hidden rounded-full border border-brand/20 bg-brand-soft font-medium text-brand text-xs">
-											<button
-												type="button"
-												onClick={() => onJump(citation)}
-												className="flex cursor-pointer items-center gap-1 py-1 pr-1.5 pl-2.5 hover:bg-brand/10"
-											>
-												<Check className="h-3 w-3 flex-shrink-0" />
-												<span>{citation.label}</span>
-												{citation.page != null && (
-													<span className="text-brand/60">
-														· p.{citation.page}
-													</span>
-												)}
-											</button>
-											<button
-												type="button"
-												onClick={() =>
-													setExpandedId(isExpanded ? null : citation.id)
-												}
-												aria-label={
-													isExpanded
-														? "Hide passage"
-														: "Show passage and related provisions"
-												}
-												className="flex items-center border-brand/20 border-l pr-2 pl-1 hover:bg-brand/10"
-											>
-												<ChevronRight
-													className={`h-3 w-3 transition-transform duration-150 ${
-														isExpanded ? "rotate-90" : ""
-													}`}
-												/>
-											</button>
-										</div>
-									</TooltipTrigger>
-									<TooltipContent side="top" className="max-w-sm">
-										Matched at page {citation.page} — click to open it in the
-										document
-									</TooltipContent>
-								</Tooltip>
-							);
-						})}
+			{groups.map((group) => {
+				const groupMatched = group.citations.filter((c) => c.verified);
+				const groupMissing = group.citations.filter((c) => !c.verified);
+				return (
+					<div key={group.key} className="flex flex-col gap-1">
+						{group.claim && (
+							<p className="text-[13px] text-neutral-600 leading-snug">
+								{group.claim.text}
+							</p>
+						)}
+						{group.claim && (
+							/* The state that matters is per proposition: a global count cannot tell
+						   a lawyer which of these they can actually rely on. */
+							<p className="pl-3 text-[11px] text-neutral-400">
+								{groupMissing.length > 0 ? (
+									<span className="text-neutral-500">
+										<AlertCircle className="mr-1 inline h-3 w-3 align-[-2px]" />
+										Evidence incomplete · {groupMissing.length} source
+										{groupMissing.length === 1 ? "" : "s"} not located
+										{groupMatched.length > 0 &&
+											` · ${groupMatched.length} matched`}
+									</span>
+								) : (
+									`${groupMatched.length} source${groupMatched.length === 1 ? "" : "s"} matched`
+								)}
+							</p>
+						)}
+						<div
+							className={`flex flex-wrap gap-1.5 ${group.claim ? "pl-3" : ""}`}
+						>
+							{groupMissing.map((citation) => (
+								<span
+									key={citation.id}
+									className="inline-flex items-center gap-1 rounded-full border border-neutral-300 border-dashed px-2.5 py-1 text-[11px] text-neutral-400"
+								>
+									<AlertCircle className="h-3 w-3 flex-shrink-0" />
+									{citation.label} · not located
+								</span>
+							))}
+							{groupMatched.map((citation) => {
+								const isExpanded = expandedId === citation.id;
+								return (
+									<Tooltip key={citation.id}>
+										<TooltipTrigger asChild>
+											<div className="inline-flex items-stretch overflow-hidden rounded-full border border-brand/20 bg-brand-soft font-medium text-brand text-xs">
+												<button
+													type="button"
+													onClick={() => onJump(citation)}
+													className="flex cursor-pointer items-center gap-1 py-1 pr-1.5 pl-2.5 hover:bg-brand/10"
+												>
+													<Check className="h-3 w-3 flex-shrink-0" />
+													<span>{citation.label}</span>
+													{citation.page != null && (
+														<span className="text-brand/60">
+															· p.{citation.page}
+														</span>
+													)}
+												</button>
+												<button
+													type="button"
+													onClick={() =>
+														setExpandedId(isExpanded ? null : citation.id)
+													}
+													aria-label={
+														isExpanded
+															? "Hide passage"
+															: "Show passage and related provisions"
+													}
+													className="flex items-center border-brand/20 border-l pr-2 pl-1 hover:bg-brand/10"
+												>
+													<ChevronRight
+														className={`h-3 w-3 transition-transform duration-150 ${
+															isExpanded ? "rotate-90" : ""
+														}`}
+													/>
+												</button>
+											</div>
+										</TooltipTrigger>
+										<TooltipContent side="top" className="max-w-sm">
+											Matched source — this wording was found in the document at
+											page {citation.page}. Whether it supports the claim is for
+											you to judge. Click to open it.
+										</TooltipContent>
+									</Tooltip>
+								);
+							})}
+						</div>
 					</div>
-				</div>
-			))}
+				);
+			})}
 
 			<AnimatePresence initial={false}>
 				{matched.map((citation) => {
@@ -220,13 +264,13 @@ export function CitationChips({
 				})}
 			</AnimatePresence>
 
-			{unresolved.length > 0 && (
+			{ungroupedUnresolved.length > 0 && (
 				<div className="rounded-lg border border-neutral-300 border-dashed px-3 py-2">
 					<p className="mb-1 flex items-center gap-1.5 font-medium text-[11px] text-neutral-500 uppercase tracking-wide">
 						<AlertCircle className="h-3 w-3" />
 						Not located
 					</p>
-					{unresolved.map((citation) => (
+					{ungroupedUnresolved.map((citation) => (
 						<p key={citation.id} className="text-neutral-500 text-xs">
 							The answer referenced{" "}
 							<span className="font-medium text-neutral-700">

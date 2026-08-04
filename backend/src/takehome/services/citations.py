@@ -45,6 +45,17 @@ _PUNCTUATION = {
 
 MIN_QUOTE_CHARS = 12
 
+# Punctuation the model tends to add or drop at the *edges* of a quote when it stops
+# mid-sentence. Trimmed from the quote's ends before matching: it cannot change a word, only
+# where the quotation was cut. Punctuation inside the quote is left strictly alone.
+BOUNDARY_PUNCTUATION = " \t\n.,;:\"'“”‘’"
+
+# A hyphen the extractor left behind when the PDF wrapped a word across two lines
+# ("accord-\nance"). The hyphen belongs to the layout, not to the word.
+LINE_BREAK_HYPHEN = re.compile(r"[-‐‑‒–—―−]\s*\n")
+
+SOFT_HYPHEN = "­"
+
 
 @dataclass(frozen=True)
 class Citation:
@@ -117,6 +128,16 @@ def _fold(text: str, furniture: frozenset[str] = frozenset()) -> tuple[str, list
                 pending_space = bool(out)
                 continue
 
+        # A word broken across lines by the PDF's wrapping: drop the hyphen *and* the break
+        # after it, so "accord-\nance" folds to "accordance" rather than "accord ance".
+        wrapped = LINE_BREAK_HYPHEN.match(text, index)
+        if wrapped is not None:
+            skip_until = wrapped.end()
+            continue
+
+        if char == SOFT_HYPHEN:
+            continue
+
         char = _PUNCTUATION.get(char, char)
         if char.isspace():
             pending_space = bool(out)
@@ -169,7 +190,10 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
     rather than silently drop it.
     """
     label = ""  # set by the caller; kept out of matching entirely
-    cleaned = quote.strip()
+    # Trim punctuation the model added or dropped where it cut the quotation. Every word must
+    # still match exactly — this only forgives *where* the quote starts and stops, which is
+    # the model's editorial choice rather than the document's wording.
+    cleaned = quote.strip().strip(BOUNDARY_PUNCTUATION)
 
     if not document_text or len(cleaned) < MIN_QUOTE_CHARS:
         return Citation(label=label, quote=cleaned, page=None, verified=False)
