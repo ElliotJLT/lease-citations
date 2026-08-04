@@ -17,7 +17,7 @@ from pathlib import Path
 import fitz  # PyMuPDF
 import pytest
 
-from takehome.services.citations import verify_quote
+from takehome.services.citations import page_furniture, verify_quote
 
 SAMPLE_DOCS = Path(__file__).resolve().parents[2] / "sample-docs"
 
@@ -84,6 +84,30 @@ class TestRealDocumentsGroundTrueQuotes:
             ]
             assert body, "no substantial lines found"
             assert verify_quote(body[len(body) // 2], text).verified
+
+
+class TestPageSpanningQuotes:
+    def test_clause_running_over_a_page_break_still_verifies(self, lease: str) -> None:
+        """Clause 3.2.4 runs from page 4 onto page 5, so extraction drops the running
+        header, the confidentiality line and the page number into the middle of the
+        sentence. A lawyer quoting the clause as it reads must still verify — this was a
+        live false negative before page furniture was stepped over."""
+        result = verify_quote(
+            "In determining the open market rent, the following matters shall be "
+            "disregarded: (a) any effect on rent of the fact that the Tenant or any "
+            "undertenant has been in occupation of the Premises; (b) any goodwill attached "
+            "to the Premises by reason of the carrying on thereat of the business of the "
+            "Tenant or any undertenant; (c) any improvement to the Premises carried out by "
+            "and at the expense of the Tenant during the Term otherwise than in pursuance "
+            "of an obligation to the Landlord.",
+            lease,
+        )
+        assert result.verified
+        assert result.page == 4  # resolves to where the passage starts
+
+    def test_furniture_detection_finds_the_running_header(self, lease: str) -> None:
+        furniture = page_furniture(lease)
+        assert any("Bishopsgate" in line for line in furniture)
 
 
 class TestRealDocumentsRejectFalseQuotes:

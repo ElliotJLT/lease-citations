@@ -18,6 +18,7 @@ from takehome.services.citations import verify_all
 from takehome.services.conversation import get_conversation, update_conversation
 from takehome.services.document import get_document_for_conversation
 from takehome.services.llm import TextDelta, chat_with_document, generate_title
+from takehome.services.trail import build_trail
 
 logger = structlog.get_logger()
 
@@ -29,12 +30,20 @@ router = APIRouter(tags=["messages"])
 # --------------------------------------------------------------------------- #
 
 
+class TrailItemOut(BaseModel):
+    kind: str
+    label: str
+    text: str
+    page: int | None
+
+
 class CitationOut(BaseModel):
     id: str
     label: str
     quote: str
     page: int | None
     verified: bool
+    trail: list[TrailItemOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -54,13 +63,19 @@ class MessageCreate(BaseModel):
     content: str
 
 
-def _serialise(citation: Citation) -> dict[str, object]:
+def _serialise(citation: Citation, document_text: str | None) -> dict[str, object]:
+    # The trail is derived from the document on read rather than stored: it's a pure function
+    # of the quote and the text, so persisting it would only create something to go stale.
+    trail = build_trail(citation.quote, document_text) if citation.verified else []
     return {
         "id": citation.id,
         "label": citation.label,
         "quote": citation.quote,
         "page": citation.page,
         "verified": citation.verified,
+        "trail": [
+            {"kind": i.kind, "label": i.label, "text": i.text, "page": i.page} for i in trail
+        ],
     }
 
 
@@ -89,8 +104,25 @@ async def list_messages(
         .order_by(Message.created_at.asc())
     )
     result = await session.execute(stmt)
+    messages = list(result.scalars().all())
 
-    return [MessageOut.model_validate(m) for m in result.scalars().all()]
+    document = await get_document_for_conversation(session, conversation_id)
+    document_text = document.extracted_text if document else None
+
+    return [
+        MessageOut(
+            id=m.id,
+            conversation_id=m.conversation_id,
+            role=m.role,
+            content=m.content,
+            created_at=m.created_at,
+            citations=[
+                CitationOut.model_validate(_serialise(c, document_text))
+                for c in m.citations
+            ],
+        )
+        for m in messages
+    ]
 
 
 @router.post("/api/conversations/{conversation_id}/messages")
@@ -201,7 +233,7 @@ async def send_message(
                 await save_session.refresh(row)
             await save_session.refresh(assistant_message)
 
-            payload = [_serialise(row) for row in rows]
+            payload = [_serialise(row, document_text) for row in rows]
 
             if is_first_message:
                 try:

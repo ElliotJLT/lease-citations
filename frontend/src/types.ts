@@ -6,12 +6,22 @@ export interface Conversation {
 	has_document: boolean;
 }
 
+/** A provision the cited passage depends on — resolved from the document, never inferred. */
+export interface TrailItem {
+	kind: "definition" | "cross-reference";
+	label: string;
+	text: string;
+	page: number | null;
+}
+
 export interface Citation {
 	id: string;
 	label: string;
 	quote: string;
 	page: number | null;
 	verified: boolean;
+	/** What this passage must be read with: its defined terms and cross-referenced clauses. */
+	trail: TrailItem[];
 }
 
 export interface Message {

@@ -20,6 +20,10 @@ from dataclasses import dataclass
 # document.py writes one of these ahead of every page of extracted text.
 PAGE_MARKER = re.compile(r"---\s*Page\s+(\d+)\s*---")
 
+# Page-number footers are furniture too, but repetition can't find them: "Page 4" and "Page 5"
+# are different strings, so each occurs exactly once.
+PAGE_NUMBER_LINE = re.compile(r"^(?:page\s+)?\d+$", re.IGNORECASE)
+
 # Typographic characters PDF extraction introduces, mapped back to their ASCII equivalents.
 _PUNCTUATION = {
     "‘": "'",
@@ -52,11 +56,41 @@ class Citation:
     verified: bool
 
 
-def _fold(text: str) -> tuple[str, list[int]]:
+def page_furniture(document_text: str) -> frozenset[str]:
+    """Running headers and footers, detected by repetition across pages.
+
+    A clause that runs over a page break has the page's header extracted into the middle of
+    its own sentence, so a lawyer's correct quote fails to match. These lines are furniture,
+    not text, and folding has to step over them the same way it steps over page markers.
+
+    Detected rather than configured: a line is furniture if it appears on at least half the
+    pages. Length-capped so a genuinely repeated clause can never be mistaken for a header.
+    """
+    starts = [m.end() for m in PAGE_MARKER.finditer(document_text)]
+    if len(starts) < 2:
+        return frozenset()
+
+    bounds = list(zip(starts, [*starts[1:], len(document_text)], strict=True))
+    counts: dict[str, int] = {}
+    for start, end in bounds:
+        seen_on_this_page = {
+            line.strip()
+            for line in document_text[start:end].splitlines()
+            if line.strip() and len(line.strip()) <= 100
+        }
+        for line in seen_on_this_page:
+            counts[line] = counts.get(line, 0) + 1
+
+    threshold = max(2, len(bounds) // 2)
+    return frozenset(line for line, count in counts.items() if count >= threshold)
+
+
+def _fold(text: str, furniture: frozenset[str] = frozenset()) -> tuple[str, list[int]]:
     """Normalise `text`, returning it alongside a map from each output character
     back to its index in the input.
 
-    Page markers are folded to whitespace so a quote spanning a page break still matches.
+    Page markers and any `furniture` lines are folded to whitespace, so a quote spanning a
+    page break still matches across whatever the extractor inserted at the boundary.
     """
     out: list[str] = []
     origin: list[int] = []
@@ -72,6 +106,16 @@ def _fold(text: str) -> tuple[str, list[int]]:
             skip_until = marker.end()
             pending_space = bool(out)
             continue
+
+        # At the start of a line, step over the whole line if it's page furniture.
+        if index == 0 or text[index - 1] == "\n":
+            line_end = text.find("\n", index)
+            line_end = len(text) if line_end == -1 else line_end
+            line = text[index:line_end].strip()
+            if line and (line in furniture or PAGE_NUMBER_LINE.match(line)):
+                skip_until = line_end
+                pending_space = bool(out)
+                continue
 
         char = _PUNCTUATION.get(char, char)
         if char.isspace():
@@ -92,7 +136,7 @@ def _fold(text: str) -> tuple[str, list[int]]:
     return "".join(out), origin
 
 
-def _reflow(span: str) -> str:
+def reflow(span: str) -> str:
     """Collapse the line breaks PDF extraction leaves mid-sentence.
 
     The wording stays the document's; only its wrapping is dropped, so a quote reads as
@@ -107,7 +151,7 @@ def _dedupe_key(quote: str) -> str:
     return folded.strip(" .,;:—-")
 
 
-def _page_for_offset(document_text: str, offset: int) -> int | None:
+def page_for_offset(document_text: str, offset: int) -> int | None:
     """The page whose marker most recently precedes `offset`."""
     page: int | None = None
     for marker in PAGE_MARKER.finditer(document_text):
@@ -130,7 +174,7 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
     if not document_text or len(cleaned) < MIN_QUOTE_CHARS:
         return Citation(label=label, quote=cleaned, page=None, verified=False)
 
-    haystack, origin = _fold(document_text)
+    haystack, origin = _fold(document_text, page_furniture(document_text))
     needle, _ = _fold(cleaned)
 
     if not needle:
@@ -145,8 +189,8 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
 
     return Citation(
         label=label,
-        quote=_reflow(document_text[start:end]),
-        page=_page_for_offset(document_text, start),
+        quote=reflow(document_text[start:end]),
+        page=page_for_offset(document_text, start),
         verified=True,
     )
 

@@ -106,13 +106,53 @@ export function CitationChips({ citations, onJump }: CitationChipsProps) {
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.15 }}
-							className={`overflow-hidden rounded-lg border px-3 py-2 font-serif text-sm italic ${
+							className={`overflow-hidden rounded-lg border ${
 								citation.verified
-									? "border-neutral-100 bg-neutral-50 text-neutral-700"
-									: "border-dashed border-neutral-200 text-neutral-500"
+									? "border-neutral-100 bg-neutral-50"
+									: "border-dashed border-neutral-200"
 							}`}
 						>
-							"{citation.quote}"
+							<p
+								className={`px-3 py-2 font-serif text-sm italic ${
+									citation.verified ? "text-neutral-700" : "text-neutral-500"
+								}`}
+							>
+								"{citation.quote}"
+							</p>
+
+							{/* What the passage depends on. A clause can be quoted accurately and still
+							    not be the whole position — this is the list a lawyer would write in
+							    the margin as "read with". Absent entirely when nothing resolves. */}
+							{citation.trail.length > 0 && (
+								<div className="border-neutral-200/70 border-t px-3 py-2">
+									<p className="mb-1.5 font-medium text-[11px] text-neutral-400 uppercase tracking-wide">
+										Read with
+									</p>
+									<ul className="flex flex-col gap-1.5">
+										{citation.trail.map((item) => (
+											<li
+												key={`${item.kind}-${item.label}`}
+												className="text-xs"
+											>
+												<span className="font-medium text-neutral-600">
+													{item.kind === "definition"
+														? `Definition: ${item.label}`
+														: item.label}
+												</span>
+												{item.page != null && (
+													<span className="text-neutral-400">
+														{" "}
+														· p.{item.page}
+													</span>
+												)}
+												<span className="block text-neutral-500">
+													{item.text}
+												</span>
+											</li>
+										))}
+									</ul>
+								</div>
+							)}
 						</motion.div>
 					) : null,
 				)}
