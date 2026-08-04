@@ -65,4 +65,7 @@ eval over the sample documents — a harness that asks known questions and asser
 resolve — so answer quality is measured on every change rather than vibes-checked. Further
 out, the unverified-citation state is a product surface of its own: today it warns, but
 logged and aggregated it tells you which documents and question types the system is weakest
-on.
+on. And the chips point at the step the lawyer's workflow ultimately demands: approve or flag
+per citation, so verified evidence stops being something they check and becomes something they
+sign off — the seed of a report-review loop in which every claim carries both its source and
+its reviewer.
