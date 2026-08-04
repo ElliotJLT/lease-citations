@@ -6,12 +6,19 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { useConversations } from "./hooks/use-conversations";
 import { useDocument } from "./hooks/use-document";
 import { useMessages } from "./hooks/use-messages";
+import type { Citation } from "./types";
 
 export default function App() {
 	// Panels hand width to each other as the work moves from asking to verifying: fold the
 	// conversation list away while reading an answer, fold the reader away while composing.
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const [readerCollapsed, setReaderCollapsed] = useState(false);
+
+	// The citation currently sending the reader somewhere. focusToken increments on every
+	// jump, including re-clicking the same citation, so the reader's effect re-fires even
+	// when the citation object itself hasn't changed.
+	const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
+	const [focusToken, setFocusToken] = useState(0);
 
 	const {
 		conversations,
@@ -61,6 +68,12 @@ export default function App() {
 		await create();
 	}, [create]);
 
+	const handleCitationJump = useCallback((citation: Citation) => {
+		setActiveCitation(citation);
+		setFocusToken((token) => token + 1);
+		setReaderCollapsed(false);
+	}, []);
+
 	return (
 		<TooltipProvider delayDuration={200}>
 			{/* Three cards on a ground, rather than panels butted together: each region reads as
@@ -90,12 +103,15 @@ export default function App() {
 					documentName={document?.filename ?? null}
 					onSend={handleSend}
 					onUpload={handleUpload}
+					onCitationJump={handleCitationJump}
 				/>
 
 				<DocumentViewer
 					document={document}
 					collapsed={readerCollapsed}
 					onToggleCollapse={() => setReaderCollapsed((open) => !open)}
+					activeCitation={activeCitation}
+					focusToken={focusToken}
 				/>
 			</div>
 		</TooltipProvider>

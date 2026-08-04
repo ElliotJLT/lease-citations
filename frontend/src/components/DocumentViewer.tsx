@@ -6,13 +6,19 @@ import {
 	Loader2,
 	PanelRightClose,
 	PanelRightOpen,
+	Quote,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Document as PDFDocument, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { getDocumentUrl } from "../lib/api";
-import type { Document } from "../types";
+import {
+	applyHighlight,
+	clearHighlights,
+	findQuoteInTextLayer,
+} from "../lib/highlight";
+import type { Citation, Document } from "../types";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
@@ -30,12 +36,18 @@ interface DocumentViewerProps {
 	document: Document | null;
 	collapsed: boolean;
 	onToggleCollapse: () => void;
+	/** The citation to jump to. `focusToken` changes on every click, even re-clicking the
+	    same citation, so the effect re-runs even when nothing else about the target differs. */
+	activeCitation: Citation | null;
+	focusToken: number;
 }
 
 export function DocumentViewer({
 	document,
 	collapsed,
 	onToggleCollapse,
+	activeCitation,
+	focusToken,
 }: DocumentViewerProps) {
 	const [numPages, setNumPages] = useState<number>(0);
 	const [currentPage, setCurrentPage] = useState(1);
@@ -43,7 +55,80 @@ export function DocumentViewer({
 	const [pdfError, setPdfError] = useState<string | null>(null);
 	const [width, setWidth] = useState(DEFAULT_WIDTH);
 	const [dragging, setDragging] = useState(false);
+	// Set when a citation's quote couldn't be located in the rendered page — the honest
+	// fallback: the reader still jumps to the right page, and the claimed passage is shown
+	// above it, rather than pretending a highlight landed somewhere it didn't.
+	const [unhighlightedQuote, setUnhighlightedQuote] = useState<string | null>(
+		null,
+	);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const pageWrapperRef = useRef<HTMLDivElement>(null);
+	// The page + quote we're trying to highlight once the text layer for that page renders.
+	// A ref, not state: it's read from a pdf.js callback, not rendered itself.
+	const pendingTargetRef = useRef<{ quote: string; page: number } | null>(null);
+
+	// A new document (including switching conversations) invalidates any in-flight target.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: document?.id is the deliberate trigger; the body intentionally doesn't read `document` itself.
+	useEffect(() => {
+		setCurrentPage(1);
+		setPdfLoading(true);
+		setPdfError(null);
+		setNumPages(0);
+		setUnhighlightedQuote(null);
+		pendingTargetRef.current = null;
+	}, [document?.id]);
+
+	const runHighlightSearch = useCallback(() => {
+		const target = pendingTargetRef.current;
+		const wrapper = pageWrapperRef.current;
+		if (!target || !wrapper) return;
+
+		const layer = wrapper.querySelector<HTMLElement>(".textLayer");
+		if (!layer) return;
+
+		clearHighlights(wrapper);
+		const match = findQuoteInTextLayer(layer, target.quote);
+
+		if (match) {
+			applyHighlight(match.spans);
+			match.spans[0]?.scrollIntoView({ behavior: "smooth", block: "center" });
+			setUnhighlightedQuote(null);
+		} else {
+			// Rendered text layer and the extracted text the backend verified against don't
+			// always segment identically. The page is still right; say so plainly rather than
+			// silently doing nothing.
+			setUnhighlightedQuote(target.quote);
+		}
+
+		pendingTargetRef.current = null;
+	}, []);
+
+	// focusToken changes on every click, including re-clicking the same citation, which
+	// activeCitation's identity alone would not catch.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: focusToken is the deliberate trigger; activeCitation is read through it, not watched directly.
+	useEffect(() => {
+		if (!activeCitation || activeCitation.page == null) return;
+
+		pendingTargetRef.current = {
+			quote: activeCitation.quote,
+			page: activeCitation.page,
+		};
+		setUnhighlightedQuote(null);
+
+		if (currentPage === activeCitation.page) {
+			// Page isn't changing, so react-pdf won't re-render the text layer and
+			// onRenderTextLayerSuccess won't fire again — run the search directly.
+			runHighlightSearch();
+		} else {
+			setCurrentPage(activeCitation.page);
+		}
+	}, [focusToken]);
+
+	const goToPage = useCallback((page: number) => {
+		pendingTargetRef.current = null;
+		setUnhighlightedQuote(null);
+		setCurrentPage(page);
+	}, []);
 
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
@@ -172,6 +257,20 @@ export function DocumentViewer({
 				</Tooltip>
 			</div>
 
+			{/* Honest fallback: right page, quote pinned, no highlight pretending to be precise */}
+			{unhighlightedQuote && (
+				<div className="flex items-start gap-2 border-b border-dashed border-neutral-200 bg-neutral-50 px-4 py-2.5">
+					<Quote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-neutral-400" />
+					<p className="text-xs text-neutral-500">
+						On this page — couldn't automatically highlight it, so here's the
+						exact wording:{" "}
+						<span className="font-serif italic text-neutral-600">
+							"{unhighlightedQuote}"
+						</span>
+					</p>
+				</div>
+			)}
+
 			{/* PDF content */}
 			<div className="flex-1 overflow-y-auto p-4">
 				{pdfError && (
@@ -198,15 +297,18 @@ export function DocumentViewer({
 					}
 				>
 					{!pdfLoading && !pdfError && (
-						<Page
-							pageNumber={currentPage}
-							width={pdfPageWidth}
-							loading={
-								<div className="flex items-center justify-center py-12">
-									<Loader2 className="h-5 w-5 animate-spin text-neutral-300" />
-								</div>
-							}
-						/>
+						<div ref={pageWrapperRef}>
+							<Page
+								pageNumber={currentPage}
+								width={pdfPageWidth}
+								onRenderTextLayerSuccess={runHighlightSearch}
+								loading={
+									<div className="flex items-center justify-center py-12">
+										<Loader2 className="h-5 w-5 animate-spin text-neutral-300" />
+									</div>
+								}
+							/>
+						</div>
 					)}
 				</PDFDocument>
 			</div>
@@ -219,7 +321,7 @@ export function DocumentViewer({
 						size="icon"
 						className="h-7 w-7"
 						disabled={currentPage <= 1}
-						onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+						onClick={() => goToPage(Math.max(1, currentPage - 1))}
 					>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
@@ -231,7 +333,7 @@ export function DocumentViewer({
 						size="icon"
 						className="h-7 w-7"
 						disabled={currentPage >= numPages}
-						onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
+						onClick={() => goToPage(Math.min(numPages, currentPage + 1))}
 					>
 						<ChevronRight className="h-4 w-4" />
 					</Button>

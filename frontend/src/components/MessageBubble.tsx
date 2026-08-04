@@ -1,14 +1,16 @@
 import { motion } from "framer-motion";
 import { Streamdown } from "streamdown";
+import { CitationChips } from "./CitationChips";
 import { OrbitalMark } from "./OrbitalMark";
 import "streamdown/styles.css";
-import type { Message } from "../types";
+import type { Citation, Message } from "../types";
 
 interface MessageBubbleProps {
 	message: Message;
+	onCitationJump: (citation: Citation) => void;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onCitationJump }: MessageBubbleProps) {
 	if (message.role === "system") {
 		return (
 			<motion.div
@@ -54,10 +56,14 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 				<div className="prose">
 					<Streamdown>{message.content}</Streamdown>
 				</div>
-				{message.sources_cited > 0 && (
+				{message.citations.length > 0 ? (
+					<CitationChips
+						citations={message.citations}
+						onJump={onCitationJump}
+					/>
+				) : (
 					<p className="mt-1.5 text-xs text-neutral-400">
-						{message.sources_cited} source
-						{message.sources_cited !== 1 ? "s" : ""} cited
+						No supporting passages offered for this answer.
 					</p>
 				)}
 			</div>

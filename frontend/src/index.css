@@ -17,6 +17,15 @@ body {
 	overflow: hidden;
 }
 
+/* Applied to pdf.js text-layer spans by lib/highlight.ts. Raw CSS rather than a Tailwind
+   utility because it's added via classList.add on nodes pdf.js owns, outside Tailwind's
+   template scan. */
+.citation-highlight-mark {
+	background-color: rgba(255, 110, 48, 0.28);
+	border-radius: 2px;
+	transition: background-color 0.2s ease;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
 	width: 6px;
