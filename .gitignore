@@ -11,6 +11,8 @@ __pycache__/
 # Node
 node_modules/
 dist/
+frontend/vite.local.config.ts
+*.tsbuildinfo
 
 # Uploads
 uploads/*
