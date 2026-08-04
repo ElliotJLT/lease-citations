@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChatSidebar } from "./components/ChatSidebar";
 import { ChatWindow } from "./components/ChatWindow";
 import { DocumentViewer } from "./components/DocumentViewer";
@@ -39,11 +39,38 @@ export default function App() {
 		send,
 	} = useMessages(selectedId);
 
+	// Flattened once here rather than re-derived per click: the inspector counts how many
+	// propositions lean on the passage currently open.
+	const claims = useMemo(() => messages.flatMap((m) => m.claims), [messages]);
+
+	// Every citation id pointed at its own answer's citation list, so the inspector can say
+	// "source 5 of 8" and step through them without needing to know about messages. The lists
+	// are already unique per document passage (the verifier dedupes upstream), which is what
+	// keeps a passage supporting three claims from being counted three times.
+	const citationSiblings = useMemo(() => {
+		const map: Record<string, Citation[]> = {};
+		for (const message of messages) {
+			for (const citation of message.citations) {
+				map[citation.id] = message.citations;
+			}
+		}
+		return map;
+	}, [messages]);
+
 	const {
 		document,
 		upload,
 		refresh: refreshDocument,
 	} = useDocument(selectedId);
+
+	// Once a document is in play — just uploaded, or already attached to a conversation you
+	// switch into — the reader is where the work happens, so the sidebar steps back to give
+	// it the room. A one-time nudge on the id changing, not a standing rule: the user's own
+	// toggle after this always wins, nothing here re-collapses it a second time.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: document?.id is the deliberate trigger; only its presence matters, not the object identity.
+	useEffect(() => {
+		if (document) setSidebarCollapsed(true);
+	}, [document?.id]);
 
 	const handleSend = useCallback(
 		async (content: string) => {
@@ -100,7 +127,7 @@ export default function App() {
 					hasDocument={!!document}
 					conversationId={selectedId}
 					title={conversations.find((c) => c.id === selectedId)?.title ?? null}
-					documentName={document?.filename ?? null}
+					selectedCitationId={activeCitation?.id ?? null}
 					onSend={handleSend}
 					onUpload={handleUpload}
 					onCitationJump={handleCitationJump}
@@ -112,6 +139,9 @@ export default function App() {
 					onToggleCollapse={() => setReaderCollapsed((open) => !open)}
 					activeCitation={activeCitation}
 					focusToken={focusToken}
+					onCitationJump={handleCitationJump}
+					claims={claims}
+					citationSiblings={citationSiblings}
 				/>
 			</div>
 		</TooltipProvider>
