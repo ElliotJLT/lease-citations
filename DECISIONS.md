@@ -48,6 +48,13 @@ Other directions considered and set aside, with the reason each lost:
 | Contradiction detection | Secondary to grounding, and needs the evidence loop anyway |
 | Risk scoring, drafting, redlining, agentic review | Different jobs; none reduce verification cost |
 
+A note on the shape of the result. Answers beside a document with highlighted sources is the
+grammar of legal AI — Orbital's products included — and it's the starter's own layout. That's
+deliberate: the category converged on this shape because it matches how lawyers check work.
+The contribution here isn't the pattern, it's the mechanism underneath it: nothing renders as
+evidence unless the server has located it in the document, absence is rendered honestly, and
+that property is tested on every commit. A highlight the system hasn't checked is decoration.
+
 ## What I'd do next
 
 In order: lift the one-document limit onto the citation model (F3), so a deal's documents
