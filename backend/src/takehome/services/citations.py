@@ -157,13 +157,23 @@ def _fold(text: str, furniture: frozenset[str] = frozenset()) -> tuple[str, list
     return "".join(out), origin
 
 
-def reflow(span: str) -> str:
-    """Collapse the line breaks PDF extraction leaves mid-sentence.
+def reflow(span: str, furniture: frozenset[str] = frozenset()) -> str:
+    """Collapse the line breaks PDF extraction leaves mid-sentence, and drop any running
+    header, footer or page number that falls inside a quote spanning a page break.
 
-    The wording stays the document's; only its wrapping is dropped, so a quote reads as
-    prose in the interface instead of carrying the page's column width around with it.
+    A quote that crosses a page boundary has the next page's furniture sitting between its
+    words in the raw extracted text: `document_text[start:end]` is a plain character slice, so
+    it carries those lines along even though `_fold()` already knows to step over them for
+    matching. Passing the same `furniture` set here means a span is judged and displayed by the
+    same rule — what survives is the document's own wording, never a header spliced into a
+    clause because the clause happened to turn a page.
     """
-    return re.sub(r"\s+", " ", PAGE_MARKER.sub(" ", span)).strip()
+    lines = [
+        line
+        for line in PAGE_MARKER.sub("\n", span).splitlines()
+        if line.strip() not in furniture and not PAGE_NUMBER_LINE.match(line.strip())
+    ]
+    return re.sub(r"\s+", " ", " ".join(lines)).strip()
 
 
 def _dedupe_key(quote: str) -> str:
@@ -198,7 +208,8 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
     if not document_text or len(cleaned) < MIN_QUOTE_CHARS:
         return Citation(label=label, quote=cleaned, page=None, verified=False)
 
-    haystack, origin = _fold(document_text, page_furniture(document_text))
+    furniture = page_furniture(document_text)
+    haystack, origin = _fold(document_text, furniture)
     needle, _ = _fold(cleaned)
 
     if not needle:
@@ -213,7 +224,7 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
 
     return Citation(
         label=label,
-        quote=reflow(document_text[start:end]),
+        quote=reflow(document_text[start:end], furniture),
         page=page_for_offset(document_text, start),
         verified=True,
     )
