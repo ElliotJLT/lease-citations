@@ -42,7 +42,8 @@ work, respects their duty, and answers their documented fear.
 The 60-second path: ask a real question → answer streams → citation chips appear beneath it
 (`Clause 3.2.1 · p.4 ✓` — tick means the backend found this exact quote in the document) →
 click a chip → the reader jumps to the page and highlights the passage → chevron unfolds the
-verbatim quote inline. Ask a question the document doesn't answer → clean refusal, zero chips,
+verbatim quote inline. Chips are dual-mode: hovering previews the opening of the quote (is
+this worth the click?), clicking commits to the document. Cheap glance, cheap jump. Ask a question the document doesn't answer → clean refusal, zero chips,
 and an honest "no supporting passages" line where the old app showed "3 sources cited".
 
 Done means: the rent-review question yields ≥3 verified chips each jumping to the right page;
