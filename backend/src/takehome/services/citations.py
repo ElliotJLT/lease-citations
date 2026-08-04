@@ -195,26 +195,41 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
     )
 
 
-def verify_all(
+def verify_all_with_origin(
     raw: list[tuple[str, str]], document_text: str | None
-) -> list[Citation]:
-    """Verify `(label, quote)` pairs, dropping duplicates of the same document span."""
-    citations: list[Citation] = []
+) -> list[tuple[int, Citation]]:
+    """`verify_all`, but each citation keeps its index in `raw`.
+
+    Deduplication means the surviving citations no longer line up with the list the model
+    supplied, so anything referring to sources by position — a claim naming the sources it
+    rests on — needs the original index to map onto them.
+    """
+    results: list[tuple[int, Citation]] = []
     seen: set[str] = set()
 
-    for label, quote in raw:
+    for index, (label, quote) in enumerate(raw):
         checked = verify_quote(quote, document_text)
         key = _dedupe_key(checked.quote)
         if not key or key in seen:
             continue
         seen.add(key)
-        citations.append(
-            Citation(
-                label=label.strip() or "Cited passage",
-                quote=checked.quote,
-                page=checked.page,
-                verified=checked.verified,
+        results.append(
+            (
+                index,
+                Citation(
+                    label=label.strip() or "Cited passage",
+                    quote=checked.quote,
+                    page=checked.page,
+                    verified=checked.verified,
+                ),
             )
         )
 
-    return citations
+    return results
+
+
+def verify_all(
+    raw: list[tuple[str, str]], document_text: str | None
+) -> list[Citation]:
+    """Verify `(label, quote)` pairs, dropping duplicates of the same document span."""
+    return [citation for _, citation in verify_all_with_origin(raw, document_text)]

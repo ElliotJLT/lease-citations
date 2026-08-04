@@ -3,12 +3,34 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     pass
+
+
+# A passage can support more than one proposition, and a proposition usually rests on more
+# than one passage, so the binding the model asserts is genuinely many-to-many.
+claim_citations = Table(
+    "claim_citations",
+    Base.metadata,
+    Column("claim_id", String, ForeignKey("claims.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "citation_id", String, ForeignKey("citations.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
 
 class Conversation(Base):
@@ -49,6 +71,11 @@ class Message(Base):
         back_populates="message",
         cascade="all, delete-orphan",
         order_by="Citation.position",
+    )
+    claims: Mapped[list[Claim]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="Claim.position",
     )
 
 
@@ -95,3 +122,31 @@ class Citation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     message: Mapped[Message] = relationship(back_populates="citations")
+    claims: Mapped[list[Claim]] = relationship(
+        secondary=claim_citations, back_populates="citations"
+    )
+
+
+class Claim(Base):
+    """One proposition an answer asks the lawyer to rely on.
+
+    The binding between a claim and its citations is the model's own assertion, not something
+    the system checks — what is checked is whether each cited passage exists. Splitting the
+    answer this far is what makes that assertion falsifiable: a lawyer can judge whether a
+    named clause supports *this* sentence, which they cannot do for an answer as a whole.
+    """
+
+    __tablename__ = "claims"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: uuid.uuid4().hex[:16]
+    )
+    message_id: Mapped[str] = mapped_column(ForeignKey("messages.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    message: Mapped[Message] = relationship(back_populates="claims")
+    citations: Mapped[list[Citation]] = relationship(
+        secondary=claim_citations, back_populates="claims", order_by="Citation.position"
+    )

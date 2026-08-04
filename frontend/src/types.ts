@@ -24,6 +24,15 @@ export interface Citation {
 	trail: TrailItem[];
 }
 
+/** One proposition an answer asks the lawyer to rely on, and the passages the model
+ *  offered for it. The binding is the model's assertion; that each passage exists is what
+ *  the server checks. */
+export interface Claim {
+	id: string;
+	text: string;
+	citation_ids: string[];
+}
+
 export interface Message {
 	id: string;
 	conversation_id: string;
@@ -31,6 +40,7 @@ export interface Message {
 	content: string;
 	created_at: string;
 	citations: Citation[];
+	claims: Claim[];
 }
 
 export interface Document {

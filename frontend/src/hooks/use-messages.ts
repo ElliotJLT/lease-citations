@@ -46,6 +46,7 @@ export function useMessages(conversationId: string | null) {
 				role: "user",
 				content,
 				citations: [],
+				claims: [],
 				created_at: new Date().toISOString(),
 			};
 
@@ -120,6 +121,7 @@ export function useMessages(conversationId: string | null) {
 						role: "assistant",
 						content: accumulated,
 						citations: [],
+						claims: [],
 						created_at: new Date().toISOString(),
 					};
 					setMessages((prev) => [...prev, assistantMessage]);

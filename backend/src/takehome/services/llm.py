@@ -37,10 +37,18 @@ agent = Agent(
         "difference. Not finding something is a useful answer, not a failure.\n"
         "- Be concise and precise. Reference the clause or section you are relying on.\n\n"
         "EVIDENCE\n"
-        f"- After your answer, output the line {SOURCES_SENTINEL} and then a JSON array "
-        "supporting your claims.\n"
-        '- Each entry is {"label": "...", "quote": "..."}. `label` is how a lawyer would '
-        'cite it ("Clause 3.2.1", "Schedule 3, paragraph 2"). `quote` is the passage itself.\n'
+        f"- After your answer, output the line {SOURCES_SENTINEL} and then a JSON object with "
+        'two keys: "sources" and "claims".\n'
+        '- "sources" is an array of {"label": "...", "quote": "..."}. `label` is how a lawyer '
+        'would cite it ("Clause 3.2.1", "Schedule 3, paragraph 2"). `quote` is the passage '
+        "itself.\n"
+        '- "claims" is an array of {"text": "...", "sources": [0, 2]}. Each entry is one '
+        "proposition your answer asks the lawyer to rely on, written as a single plain "
+        "sentence, and the indices of the sources in the array above that support that "
+        "specific proposition.\n"
+        "- Break the answer into the propositions a lawyer would evaluate separately, and "
+        "attach each source to the proposition it actually supports rather than listing "
+        "everything against everything. Every source should appear under at least one claim.\n"
         "- Quote the document's exact wording. Do not paraphrase, summarise, join separate "
         "passages, or correct apparent errors.\n"
         "- Write each quote on a single line: replace the line breaks the document wraps with "
@@ -70,10 +78,20 @@ class TextDelta:
 
 
 @dataclass(frozen=True)
+class ClaimRef:
+    """One proposition the answer rests on, and the sources offered for it (by index)."""
+
+    text: str
+    source_indices: list[int]
+
+
+@dataclass(frozen=True)
 class CitationBlock:
-    """The model's `(label, quote)` pairs, still unverified."""
+    """The model's evidence, still unverified: `(label, quote)` pairs and the claims
+    each was offered for. `claims` is empty when the model returns the older bare array."""
 
     items: list[tuple[str, str]]
+    claims: list[ClaimRef]
 
 
 ChatEvent = TextDelta | CitationBlock
@@ -123,36 +141,39 @@ def _escape_literal_newlines(text: str) -> str:
     return "".join(out)
 
 
-def parse_citation_block(raw: str) -> list[tuple[str, str]]:
-    """Read `(label, quote)` pairs out of the model's trailing JSON.
-
-    Malformed output yields no citations rather than an error: the answer is still useful,
-    and an answer with no evidence is a state the interface already has to handle honestly.
-    """
+def _extract_json(raw: str) -> object | None:
+    """Pull the JSON object or array out of the model's trailing block, repairing the
+    literal newlines a quoted passage tends to carry in with it."""
     text = raw.strip()
     if not text:
+        return None
+
+    # Whichever bracket opens first is the outer value. Searching for "{" unconditionally
+    # would pick the first *element* out of a bare array of sources.
+    pairs = [("{", "}"), ("[", "]")]
+    pairs.sort(key=lambda p: text.find(p[0]) if p[0] in text else len(text))
+
+    for opener, closer in pairs:
+        start, end = text.find(opener), text.rfind(closer)
+        if start == -1 or end <= start:
+            continue
+        block = text[start : end + 1]
+        for candidate in (block, _escape_literal_newlines(block)):
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+
+    logger.warning("Evidence block failed to parse", raw=text[:300])
+    return None
+
+
+def _read_sources(entries: object) -> list[tuple[str, str]]:
+    if not isinstance(entries, list):
         return []
-
-    start, end = text.find("["), text.rfind("]")
-    if start == -1 or end <= start:
-        logger.warning("Citation block was not a JSON array", raw=text[:200])
-        return []
-
-    block = text[start : end + 1]
-    try:
-        parsed = json.loads(block)
-    except json.JSONDecodeError:
-        try:
-            parsed = json.loads(_escape_literal_newlines(block))
-        except json.JSONDecodeError:
-            logger.warning("Citation block failed to parse", raw=block[:300])
-            return []
-
-    if not isinstance(parsed, list):
-        return []
-
+    items: list[object] = list(entries)  # type: ignore[arg-type]
     pairs: list[tuple[str, str]] = []
-    for entry in parsed:  # type: ignore[union-attr]
+    for entry in items:
         if not isinstance(entry, dict):
             continue
         quote = entry.get("quote")  # type: ignore[union-attr]
@@ -160,8 +181,58 @@ def parse_citation_block(raw: str) -> list[tuple[str, str]]:
             continue
         label = entry.get("label")  # type: ignore[union-attr]
         pairs.append((label if isinstance(label, str) else "", quote))
-
     return pairs
+
+
+def _read_claims(entries: object, source_count: int) -> list[ClaimRef]:
+    """Claims, keeping only source indices that actually exist. A claim whose sources all
+    fall away is still kept — the proposition was made, and that it has nothing behind it
+    is the more interesting fact."""
+    if not isinstance(entries, list):
+        return []
+    rows: list[object] = list(entries)  # type: ignore[arg-type]
+    claims: list[ClaimRef] = []
+    for entry in rows:
+        if not isinstance(entry, dict):
+            continue
+        text = entry.get("text")  # type: ignore[union-attr]
+        if not isinstance(text, str) or not text.strip():
+            continue
+        raw_indices: object = entry.get("sources")  # type: ignore[union-attr]
+        candidates: list[object] = (
+            list(raw_indices) if isinstance(raw_indices, list) else []  # type: ignore[arg-type]
+        )
+        indices = [
+            i for i in candidates if isinstance(i, int) and 0 <= i < source_count
+        ]
+        claims.append(ClaimRef(text=text.strip(), source_indices=indices))
+    return claims
+
+
+def parse_citation_block(raw: str) -> CitationBlock:
+    """Read the model's evidence out of its trailing JSON.
+
+    Accepts the object form (`{"sources": [...], "claims": [...]}`) and the older bare array
+    of sources, so a model that ignores half the instruction still produces usable citations.
+    Malformed output yields no evidence rather than an error: the answer is still useful, and
+    an answer with nothing behind it is a state the interface already handles honestly.
+    """
+    parsed = _extract_json(raw)
+    if parsed is None:
+        return CitationBlock(items=[], claims=[])
+
+    if isinstance(parsed, list):
+        # Older bare-array form: sources only, no claim bindings.
+        return CitationBlock(items=_read_sources(list(parsed)), claims=[])  # type: ignore[arg-type]
+
+    if isinstance(parsed, dict):
+        body: dict[str, object] = parsed  # type: ignore[assignment]
+        sources = _read_sources(body.get("sources"))
+        return CitationBlock(
+            items=sources, claims=_read_claims(body.get("claims"), len(sources))
+        )
+
+    return CitationBlock(items=[], claims=[])
 
 
 async def chat_with_document(
@@ -232,4 +303,4 @@ async def chat_with_document(
     if display_buffer and not in_sources:
         yield TextDelta(display_buffer)
 
-    yield CitationBlock(parse_citation_block(sources_buffer))
+    yield parse_citation_block(sources_buffer)

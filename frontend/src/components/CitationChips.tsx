@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, Check, ChevronRight } from "lucide-react";
 import { useState } from "react";
-import type { Citation, TrailItem } from "../types";
+import type { Citation, Claim, TrailItem } from "../types";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface CitationChipsProps {
 	citations: Citation[];
+	claims: Claim[];
 	onJump: (citation: Citation) => void;
 }
 
@@ -37,7 +38,11 @@ function preview(text: string, max = 180): string {
  * The wording throughout is "matched" and "located", never "verified": what's established is
  * that a passage exists at a place, not that the answer built on it is correct.
  */
-export function CitationChips({ citations, onJump }: CitationChipsProps) {
+export function CitationChips({
+	citations,
+	claims,
+	onJump,
+}: CitationChipsProps) {
 	const [expandedId, setExpandedId] = useState<string | null>(null);
 
 	const matched = citations.filter((c) => c.verified);
@@ -45,6 +50,31 @@ export function CitationChips({ citations, onJump }: CitationChipsProps) {
 	if (matched.length === 0 && unresolved.length === 0) return null;
 
 	const matchedKeys = new Set(matched.map((c) => labelKey(c.label)));
+
+	const byId = new Map(matched.map((c) => [c.id, c]));
+	// Claims the model bound to at least one passage that survived verification. Where it
+	// supplied no bindings — older contract, or it ignored the instruction — fall back to a
+	// single ungrouped set rather than inventing a structure.
+	const claimGroups = claims
+		.map((claim) => ({
+			key: claim.id,
+			claim,
+			citations: claim.citation_ids
+				.map((id) => byId.get(id))
+				.filter((c): c is Citation => c !== undefined),
+		}))
+		.filter((g) => g.citations.length > 0);
+
+	const groupedIds = new Set(
+		claimGroups.flatMap((g) => g.citations.map((c) => c.id)),
+	);
+	const ungrouped = matched.filter((c) => !groupedIds.has(c.id));
+	const groups = [
+		...claimGroups,
+		...(ungrouped.length > 0
+			? [{ key: "__ungrouped", claim: null, citations: ungrouped }]
+			: []),
+	];
 
 	/** Send the reader to a related provision, using the document's own wording as the target. */
 	const jumpToTrailItem = (source: Citation, item: TrailItem) =>
@@ -70,56 +100,68 @@ export function CitationChips({ citations, onJump }: CitationChipsProps) {
 				{unresolved.length > 0 && ` · ${unresolved.length} not located`}
 			</p>
 
-			{matched.length > 0 && (
-				<div className="flex flex-wrap gap-1.5">
-					{matched.map((citation) => {
-						const isExpanded = expandedId === citation.id;
-						return (
-							<Tooltip key={citation.id}>
-								<TooltipTrigger asChild>
-									<div className="inline-flex items-stretch overflow-hidden rounded-full border border-brand/20 bg-brand-soft font-medium text-brand text-xs">
-										<button
-											type="button"
-											onClick={() => onJump(citation)}
-											className="flex cursor-pointer items-center gap-1 py-1 pr-1.5 pl-2.5 hover:bg-brand/10"
-										>
-											<Check className="h-3 w-3 flex-shrink-0" />
-											<span>{citation.label}</span>
-											{citation.page != null && (
-												<span className="text-brand/60">
-													· p.{citation.page}
-												</span>
-											)}
-										</button>
-										<button
-											type="button"
-											onClick={() =>
-												setExpandedId(isExpanded ? null : citation.id)
-											}
-											aria-label={
-												isExpanded
-													? "Hide passage"
-													: "Show passage and related provisions"
-											}
-											className="flex items-center border-brand/20 border-l pr-2 pl-1 hover:bg-brand/10"
-										>
-											<ChevronRight
-												className={`h-3 w-3 transition-transform duration-150 ${
-													isExpanded ? "rotate-90" : ""
-												}`}
-											/>
-										</button>
-									</div>
-								</TooltipTrigger>
-								<TooltipContent side="top" className="max-w-sm">
-									Matched at page {citation.page} — click to open it in the
-									document
-								</TooltipContent>
-							</Tooltip>
-						);
-					})}
+			{/* Grouped by the proposition each passage was offered for, where the model
+			    supplied that binding. It's the model's own mapping, not a checked one —
+			    but at this grain a lawyer can judge it, which they can't for a whole answer. */}
+			{groups.map((group) => (
+				<div key={group.key} className="flex flex-col gap-1.5">
+					{group.claim && (
+						<p className="text-[13px] text-neutral-600 leading-snug">
+							{group.claim.text}
+						</p>
+					)}
+					<div
+						className={`flex flex-wrap gap-1.5 ${group.claim ? "pl-3" : ""}`}
+					>
+						{group.citations.map((citation) => {
+							const isExpanded = expandedId === citation.id;
+							return (
+								<Tooltip key={citation.id}>
+									<TooltipTrigger asChild>
+										<div className="inline-flex items-stretch overflow-hidden rounded-full border border-brand/20 bg-brand-soft font-medium text-brand text-xs">
+											<button
+												type="button"
+												onClick={() => onJump(citation)}
+												className="flex cursor-pointer items-center gap-1 py-1 pr-1.5 pl-2.5 hover:bg-brand/10"
+											>
+												<Check className="h-3 w-3 flex-shrink-0" />
+												<span>{citation.label}</span>
+												{citation.page != null && (
+													<span className="text-brand/60">
+														· p.{citation.page}
+													</span>
+												)}
+											</button>
+											<button
+												type="button"
+												onClick={() =>
+													setExpandedId(isExpanded ? null : citation.id)
+												}
+												aria-label={
+													isExpanded
+														? "Hide passage"
+														: "Show passage and related provisions"
+												}
+												className="flex items-center border-brand/20 border-l pr-2 pl-1 hover:bg-brand/10"
+											>
+												<ChevronRight
+													className={`h-3 w-3 transition-transform duration-150 ${
+														isExpanded ? "rotate-90" : ""
+													}`}
+												/>
+											</button>
+										</div>
+									</TooltipTrigger>
+									<TooltipContent side="top" className="max-w-sm">
+										Matched at page {citation.page} — click to open it in the
+										document
+									</TooltipContent>
+								</Tooltip>
+							);
+						})}
+					</div>
 				</div>
-			)}
+			))}
 
 			<AnimatePresence initial={false}>
 				{matched.map((citation) => {

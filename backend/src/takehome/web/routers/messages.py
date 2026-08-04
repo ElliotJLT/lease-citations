@@ -12,12 +12,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.responses import StreamingResponse
 
-from takehome.db.models import Citation, Message
+from takehome.db.models import Citation, Claim, Message
 from takehome.db.session import get_session
-from takehome.services.citations import verify_all
+from takehome.services.citations import verify_all_with_origin
 from takehome.services.conversation import get_conversation, update_conversation
 from takehome.services.document import get_document_for_conversation
-from takehome.services.llm import TextDelta, chat_with_document, generate_title
+from takehome.services.llm import (
+    ClaimRef,
+    TextDelta,
+    chat_with_document,
+    generate_title,
+)
 from takehome.services.trail import build_trail
 
 logger = structlog.get_logger()
@@ -48,6 +53,12 @@ class CitationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ClaimOut(BaseModel):
+    id: str
+    text: str
+    citation_ids: list[str] = []
+
+
 class MessageOut(BaseModel):
     id: str
     conversation_id: str
@@ -55,12 +66,21 @@ class MessageOut(BaseModel):
     content: str
     created_at: datetime
     citations: list[CitationOut] = []
+    claims: list[ClaimOut] = []
 
     model_config = {"from_attributes": True}
 
 
 class MessageCreate(BaseModel):
     content: str
+
+
+def _serialise_claim(claim: Claim) -> dict[str, object]:
+    return {
+        "id": claim.id,
+        "text": claim.text,
+        "citation_ids": [c.id for c in claim.citations],
+    }
 
 
 def _serialise(citation: Citation, document_text: str | None) -> dict[str, object]:
@@ -100,7 +120,7 @@ async def list_messages(
     stmt = (
         select(Message)
         .where(Message.conversation_id == conversation_id)
-        .options(selectinload(Message.citations))
+        .options(selectinload(Message.citations), selectinload(Message.claims).selectinload(Claim.citations))
         .order_by(Message.created_at.asc())
     )
     result = await session.execute(stmt)
@@ -120,6 +140,7 @@ async def list_messages(
                 CitationOut.model_validate(_serialise(c, document_text))
                 for c in m.citations
             ],
+            claims=[ClaimOut.model_validate(_serialise_claim(cl)) for cl in m.claims],
         )
         for m in messages
     ]
@@ -173,6 +194,7 @@ async def send_message(
     async def event_stream() -> AsyncIterator[str]:
         full_response = ""
         offered: list[tuple[str, str]] = []
+        claim_refs: list[ClaimRef] = []
 
         try:
             async for event in chat_with_document(
@@ -185,21 +207,27 @@ async def send_message(
                     yield f"data: {json.dumps({'type': 'content', 'content': event.text})}\n\n"
                 else:
                     offered = event.items
+                    claim_refs = event.claims
 
         except Exception:
             logger.exception("Error during LLM streaming", conversation_id=conversation_id)
             error_msg = "I'm sorry, an error occurred while generating a response. Please try again."
             full_response = error_msg
             offered = []
+            claim_refs = []
             yield f"data: {json.dumps({'type': 'content', 'content': error_msg})}\n\n"
 
-        checked = verify_all(offered, document_text)
+        # Keep each citation's index in the model's own list, so a claim naming sources
+        # by position still maps onto them after deduplication.
+        verified_pairs = verify_all_with_origin(offered, document_text)
+        checked = [citation for _, citation in verified_pairs]
         logger.info(
             "Citations verified",
             conversation_id=conversation_id,
             offered=len(offered),
             verified=sum(1 for c in checked if c.verified),
             unverified=sum(1 for c in checked if not c.verified),
+            claims=len(claim_refs),
         )
 
         # A fresh session: the request-scoped one may have been closed by now.
@@ -227,6 +255,22 @@ async def send_message(
                 for index, c in enumerate(checked)
             ]
             save_session.add_all(rows)
+            await save_session.flush()
+
+            # The model's own binding of proposition to evidence. Never checked — what is
+            # checked is that each cited passage exists. Splitting the answer this far is
+            # what lets a lawyer judge the binding for themselves.
+            by_origin = {origin: rows[i] for i, (origin, _) in enumerate(verified_pairs)}
+            claim_rows: list[Claim] = []
+            for position, ref in enumerate(claim_refs):
+                claim = Claim(
+                    message_id=assistant_message.id, text=ref.text, position=position
+                )
+                claim.citations = [
+                    by_origin[i] for i in ref.source_indices if i in by_origin
+                ]
+                claim_rows.append(claim)
+            save_session.add_all(claim_rows)
             await save_session.commit()
 
             for row in rows:
@@ -234,6 +278,7 @@ async def send_message(
             await save_session.refresh(assistant_message)
 
             payload = [_serialise(row, document_text) for row in rows]
+            claims_payload = [_serialise_claim(c) for c in claim_rows]
 
             if is_first_message:
                 try:
@@ -257,6 +302,7 @@ async def send_message(
                         "content": assistant_message.content,
                         "created_at": assistant_message.created_at.isoformat(),
                         "citations": payload,
+                        "claims": claims_payload,
                     },
                 }
             )
@@ -267,6 +313,7 @@ async def send_message(
                     "type": "done",
                     "message_id": assistant_message.id,
                     "citations": payload,
+                    "claims": claims_payload,
                 }
             )
             yield f"data: {done_data}\n\n"

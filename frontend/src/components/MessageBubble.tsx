@@ -59,6 +59,7 @@ export function MessageBubble({ message, onCitationJump }: MessageBubbleProps) {
 				{message.citations.length > 0 ? (
 					<CitationChips
 						citations={message.citations}
+						claims={message.claims}
 						onJump={onCitationJump}
 					/>
 				) : (
