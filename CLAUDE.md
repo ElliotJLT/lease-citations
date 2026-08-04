@@ -110,9 +110,15 @@ usage with a periodic grounding eval over known documents. That harness is first
 Two separate decisions, deliberately made:
 
 - **Dev-time (building this repo).** Planning, audit and spec ran on the top reasoning tier
-  (Claude Fable 5) because every later decision inherits from them. Implementation runs on
-  Opus 5 — the agentic-coding sweet spot at half the per-token cost — against this file as
-  the binding spec. Mechanical fixes can drop a tier further. Route by task, not by default.
+  (Claude Fable 5) because every later decision inherits from them. Implementation runs a tier
+  down against this file as the binding spec. Route by task, not by default.
+- **Context length is the cost, not the tier.** A long session re-reads its whole history every
+  turn, and prompt caches are model-scoped — so switching models mid-thread pays a cold read of
+  everything. Once the spec is settled, a fresh session pointed at this file is roughly an order
+  of magnitude cheaper than continuing the thread that produced it, on any model. That only
+  works if the spec is genuinely complete, which is the real argument for writing it down: the
+  test of these docs is whether an agent with no memory of the discussion can build the right
+  thing from them.
 - **Runtime (what the product calls).** The app keeps its existing Haiku 4.5 for chat and
   citation extraction. The citation verifier is a string match against the document — it
   doesn't trust the model — so model tier is a cost/latency knob here, not a trust knob.

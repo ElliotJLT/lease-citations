@@ -55,6 +55,27 @@ The contribution here isn't the pattern, it's the mechanism underneath it: nothi
 evidence unless the server has located it in the document, absence is rendered honestly, and
 that property is tested on every commit. A highlight the system hasn't checked is decoration.
 
+## How the work was directed
+
+Worth stating, since it shaped the repo as much as the feature did. The docs came before the
+code and were written to be *binding on agents*, not to describe the work afterwards: audit
+first, then `CLAUDE.md` as the spec, then implementation held to it. That ordering is visible
+in the commit history, and it's what made the rest of the routing possible.
+
+Models were chosen per task rather than by default. The audit, the product framing and the
+spec ran on the top reasoning tier, because every later decision inherits from them and a bad
+call there propagates. Implementation ran a tier down against the spec — well-specified
+component work is where cheaper models are at parity, and paying frontier rates to write code
+against a settled design is the routing mistake, not the saving.
+
+The non-obvious cost lever turned out not to be the model tier at all. A long session re-reads
+its entire history every turn and prompt caches are model-scoped, so the expensive thing is
+context, not intelligence. Once the spec was settled, the cheapest correct move was a fresh
+session pointed at `CLAUDE.md` — roughly an order of magnitude less context per turn than
+continuing the conversation that produced it. That only works if the spec is genuinely
+complete, which is the real reason to write one: the test of these documents is whether an
+agent with no memory of the discussion can build the right thing from them alone.
+
 ## What I'd do next
 
 In order: lift the one-document limit onto the citation model (F3), so a deal's documents
