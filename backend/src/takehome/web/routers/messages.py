@@ -14,15 +14,16 @@ from starlette.responses import StreamingResponse
 
 from takehome.db.models import Citation, Claim, Message
 from takehome.db.session import get_session
-from takehome.services.citations import verify_all_with_origin
+from takehome.services.citations import Citation as VerifiedCitation
+from takehome.services.citations import verify_all_by_index
 from takehome.services.conversation import get_conversation, update_conversation
 from takehome.services.document import get_document_for_conversation
 from takehome.services.llm import (
-    ClaimRef,
     TextDelta,
     chat_with_document,
     generate_title,
 )
+from takehome.services.markers import ClaimRef, derive_claims, rewrite_markers
 from takehome.services.trail import build_trail
 
 logger = structlog.get_logger()
@@ -48,6 +49,10 @@ class CitationOut(BaseModel):
     quote: str
     page: int | None
     verified: bool
+    # Stable 1-based display index — a citation's position in the array it was returned in,
+    # plus one. Lets the frontend render "[[c:<id>]]" markers as "1", "2", ... without ever
+    # needing to know the model's own (unstable, pre-dedup) numbering.
+    number: int
     trail: list[TrailItemOut] = []
 
     model_config = {"from_attributes": True}
@@ -83,7 +88,7 @@ def _serialise_claim(claim: Claim) -> dict[str, object]:
     }
 
 
-def _serialise(citation: Citation, document_text: str | None) -> dict[str, object]:
+def _serialise(citation: Citation, document_text: str | None, number: int) -> dict[str, object]:
     # The trail is derived from the document on read rather than stored: it's a pure function
     # of the quote and the text, so persisting it would only create something to go stale.
     trail = build_trail(citation.quote, document_text) if citation.verified else []
@@ -93,6 +98,7 @@ def _serialise(citation: Citation, document_text: str | None) -> dict[str, objec
         "quote": citation.quote,
         "page": citation.page,
         "verified": citation.verified,
+        "number": number,
         "trail": [
             {"kind": i.kind, "label": i.label, "text": i.text, "page": i.page} for i in trail
         ],
@@ -120,7 +126,10 @@ async def list_messages(
     stmt = (
         select(Message)
         .where(Message.conversation_id == conversation_id)
-        .options(selectinload(Message.citations), selectinload(Message.claims).selectinload(Claim.citations))
+        .options(
+            selectinload(Message.citations),
+            selectinload(Message.claims).selectinload(Claim.citations),
+        )
         .order_by(Message.created_at.asc())
     )
     result = await session.execute(stmt)
@@ -137,8 +146,8 @@ async def list_messages(
             content=m.content,
             created_at=m.created_at,
             citations=[
-                CitationOut.model_validate(_serialise(c, document_text))
-                for c in m.citations
+                CitationOut.model_validate(_serialise(c, document_text, number=i + 1))
+                for i, c in enumerate(m.citations)
             ],
             claims=[ClaimOut.model_validate(_serialise_claim(cl)) for cl in m.claims],
         )
@@ -194,7 +203,6 @@ async def send_message(
     async def event_stream() -> AsyncIterator[str]:
         full_response = ""
         offered: list[tuple[str, str]] = []
-        claim_refs: list[ClaimRef] = []
 
         try:
             async for event in chat_with_document(
@@ -206,21 +214,39 @@ async def send_message(
                     full_response += event.text
                     yield f"data: {json.dumps({'type': 'content', 'content': event.text})}\n\n"
                 else:
+                    # `event.claims` (the legacy JSON-authored form) is intentionally ignored:
+                    # the claims a lawyer sees now come from `derive_claims` below, reading the
+                    # `[[n]]` markers the model wrote inline as it went, not a second list.
                     offered = event.items
-                    claim_refs = event.claims
 
         except Exception:
             logger.exception("Error during LLM streaming", conversation_id=conversation_id)
-            error_msg = "I'm sorry, an error occurred while generating a response. Please try again."
+            error_msg = (
+                "I'm sorry, an error occurred while generating a response. Please try again."
+            )
             full_response = error_msg
             offered = []
-            claim_refs = []
             yield f"data: {json.dumps({'type': 'content', 'content': error_msg})}\n\n"
 
-        # Keep each citation's index in the model's own list, so a claim naming sources
-        # by position still maps onto them after deduplication.
-        verified_pairs = verify_all_with_origin(offered, document_text)
-        checked = [citation for _, citation in verified_pairs]
+        # One verification pass, kept in two shapes: `resolved` answers "what did offered
+        # index i resolve to?" for *every* index, including the later duplicate of a repeated
+        # quote — the shape a marker rewrite needs, since a duplicate index is still a live
+        # `[[n]]` in the prose that has to resolve to something. `checked` is the deduplicated,
+        # first-occurrence list a lawyer actually sees as citations, recovered from `resolved`
+        # by walking indices in order and keeping the first time each citation object appears
+        # — cheap bookkeeping over an already-verified handful of sources, not a second check.
+        resolved = verify_all_by_index(offered, document_text)
+        # `VerifiedCitation` is `citations.Citation`, the verification dataclass — aliased on
+        # import because `Citation` already names the persisted `db.models` row below.
+        checked: list[VerifiedCitation] = []
+        for index in range(len(offered)):
+            citation = resolved.get(index)
+            if citation is None or any(citation is seen for seen in checked):
+                continue
+            checked.append(citation)
+        # Claim text and grouping are recovered from marker *position* alone — pure, and
+        # independent of anything database-shaped — so this can run before persistence starts.
+        claim_refs: list[ClaimRef] = derive_claims(full_response, source_count=len(offered))
         logger.info(
             "Citations verified",
             conversation_id=conversation_id,
@@ -237,7 +263,9 @@ async def send_message(
             assistant_message = Message(
                 conversation_id=conversation_id,
                 role="assistant",
-                content=full_response.strip(),
+                # Filled in below once citation rows (and therefore their ids) exist —
+                # rewriting `[[n]]` to `[[c:<id>]]` needs an id to rewrite to.
+                content="",
             )
             save_session.add(assistant_message)
             await save_session.flush()
@@ -257,18 +285,37 @@ async def send_message(
             save_session.add_all(rows)
             await save_session.flush()
 
-            # The model's own binding of proposition to evidence. Never checked — what is
-            # checked is that each cited passage exists. Splitting the answer this far is
-            # what lets a lawyer judge the binding for themselves.
-            by_origin = {origin: rows[i] for i, (origin, _) in enumerate(verified_pairs)}
+            # `rows[j]` is the persisted row for `checked[j]` — same order, same objects one
+            # verification pass produced. Bridge back to `resolved` (every offered index, not
+            # just the deduplicated ones) by object identity, so a duplicate index resolves to
+            # the *same* row its earlier twin got, without checking anything a second time.
+            row_by_object: dict[int, Citation] = {
+                id(citation): row for citation, row in zip(checked, rows, strict=True)
+            }
+            row_by_index: dict[int, Citation] = {
+                index: row_by_object[id(citation)] for index, citation in resolved.items()
+            }
+
+            # Markers are native to the answer: the model wrote `[[n]]` at an exact position,
+            # so turning that into the stable `[[c:<id>]]` form is a substitution, never an
+            # inference. Not-located citations keep their marker too — `row_by_index` covers
+            # unverified rows the same as verified ones, on purpose (CLAUDE.md's marker rules).
+            assistant_message.content = rewrite_markers(
+                full_response, {i: row.id for i, row in row_by_index.items()}
+            ).strip()
+
             claim_rows: list[Claim] = []
             for position, ref in enumerate(claim_refs):
-                claim = Claim(
-                    message_id=assistant_message.id, text=ref.text, position=position
-                )
-                claim.citations = [
-                    by_origin[i] for i in ref.source_indices if i in by_origin
-                ]
+                claim = Claim(message_id=assistant_message.id, text=ref.text, position=position)
+                linked: list[Citation] = []
+                seen_ids: set[str] = set()
+                for i in ref.source_indices:
+                    row = row_by_index.get(i)
+                    if row is None or row.id in seen_ids:
+                        continue
+                    seen_ids.add(row.id)
+                    linked.append(row)
+                claim.citations = linked
                 claim_rows.append(claim)
             save_session.add_all(claim_rows)
             await save_session.commit()
@@ -277,7 +324,7 @@ async def send_message(
                 await save_session.refresh(row)
             await save_session.refresh(assistant_message)
 
-            payload = [_serialise(row, document_text) for row in rows]
+            payload = [_serialise(row, document_text, number=i + 1) for i, row in enumerate(rows)]
             claims_payload = [_serialise_claim(c) for c in claim_rows]
 
             if is_first_message:

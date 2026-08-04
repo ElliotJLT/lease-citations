@@ -230,6 +230,46 @@ def verify_quote(quote: str, document_text: str | None) -> Citation:
     )
 
 
+def _verify_all(
+    raw: list[tuple[str, str]], document_text: str | None
+) -> tuple[list[tuple[int, Citation]], dict[int, Citation]]:
+    """Verify every offered quote in a single pass, keeping two views of the result.
+
+    The first is the surviving, deduplicated citations in first-occurrence order — what
+    `verify_all_with_origin` has always returned. The second maps *every* offered index,
+    including the later duplicates the first view drops, onto the citation its span actually
+    resolved to. A lawyer's citation list should show one row per span, not one per quote the
+    model happened to write — but something that refers to sources by their original position
+    (a marker naming source 5, say, when 5 duplicated source 2) still needs an answer for every
+    index, not just the ones that survived deduplication. Both views come from the same loop
+    because verifying is the only expensive step here; nothing about *how* a quote is checked
+    changes between them.
+    """
+    results: list[tuple[int, Citation]] = []
+    by_index: dict[int, Citation] = {}
+    seen: dict[str, Citation] = {}
+
+    for index, (label, quote) in enumerate(raw):
+        checked = verify_quote(quote, document_text)
+        key = _dedupe_key(checked.quote)
+        if not key:
+            continue
+        if key in seen:
+            by_index[index] = seen[key]
+            continue
+        citation = Citation(
+            label=label.strip() or "Cited passage",
+            quote=checked.quote,
+            page=checked.page,
+            verified=checked.verified,
+        )
+        seen[key] = citation
+        by_index[index] = citation
+        results.append((index, citation))
+
+    return results, by_index
+
+
 def verify_all_with_origin(
     raw: list[tuple[str, str]], document_text: str | None
 ) -> list[tuple[int, Citation]]:
@@ -239,32 +279,25 @@ def verify_all_with_origin(
     supplied, so anything referring to sources by position — a claim naming the sources it
     rests on — needs the original index to map onto them.
     """
-    results: list[tuple[int, Citation]] = []
-    seen: set[str] = set()
-
-    for index, (label, quote) in enumerate(raw):
-        checked = verify_quote(quote, document_text)
-        key = _dedupe_key(checked.quote)
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        results.append(
-            (
-                index,
-                Citation(
-                    label=label.strip() or "Cited passage",
-                    quote=checked.quote,
-                    page=checked.page,
-                    verified=checked.verified,
-                ),
-            )
-        )
-
+    results, _ = _verify_all(raw, document_text)
     return results
 
 
-def verify_all(
+def verify_all_by_index(
     raw: list[tuple[str, str]], document_text: str | None
-) -> list[Citation]:
+) -> dict[int, Citation]:
+    """Every offered index, mapped onto the citation its quote resolved to.
+
+    Unlike `verify_all_with_origin`, this does not drop the later index of an exact-duplicate
+    quote — it maps that index onto the same citation the earlier one resolved to. Built for
+    callers where a duplicate index is still a live reference that has to resolve to
+    *something* (an inline `[[n]]` marker, say), where `verify_all_with_origin`'s silent drop
+    would otherwise be indistinguishable from "this citation could not be checked at all".
+    """
+    _, by_index = _verify_all(raw, document_text)
+    return by_index
+
+
+def verify_all(raw: list[tuple[str, str]], document_text: str | None) -> list[Citation]:
     """Verify `(label, quote)` pairs, dropping duplicates of the same document span."""
     return [citation for _, citation in verify_all_with_origin(raw, document_text)]
