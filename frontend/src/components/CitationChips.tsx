@@ -22,6 +22,12 @@ function preview(text: string, max = 180): string {
 	return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
 }
 
+// Quotes are prompted at 10-40 words and the verifier stores the matched span at the same
+// length, so this cap renders almost all of them in full and only guards the long tail. The
+// reader is the source-reading surface — this panel confirms the right passage, it doesn't
+// replace opening the document.
+const EXPANDED_QUOTE_MAX = 450;
+
 /**
  * Evidence for an answer, and only what the system can actually establish about it.
  *
@@ -42,13 +48,17 @@ function preview(text: string, max = 180): string {
  *
  * The wording throughout is "matched" and "located", never "verified": what's established is
  * that a passage exists at a place, not that the answer built on it is correct.
+ *
+ * A deduplicated citation can sit under more than one claim (one passage can support several
+ * propositions), so expansion state is keyed per chip *instance* (`${group.key}:${citation.id}`)
+ * rather than per citation — clicking one instance's chevron never opens the other.
  */
 export function CitationChips({
 	citations,
 	claims,
 	onJump,
 }: CitationChipsProps) {
-	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
 	const matched = citations.filter((c) => c.verified);
 	const unresolved = citations.filter((c) => !c.verified);
@@ -108,8 +118,9 @@ export function CitationChips({
 					Sources offered for this answer
 				</p>
 				<p className="text-[11px] text-neutral-400">
-					{matched.length} matched in this document
-					{unresolved.length > 0 && ` · ${unresolved.length} not located`}
+					{unresolved.length === 0
+						? `${matched.length} sources · all matched in this document`
+						: `${matched.length + unresolved.length} sources · ${matched.length} matched in this document · ${unresolved.length} not located`}
 				</p>
 			</div>
 
@@ -119,6 +130,15 @@ export function CitationChips({
 			{groups.map((group) => {
 				const groupMatched = group.citations.filter((c) => c.verified);
 				const groupMissing = group.citations.filter((c) => !c.verified);
+				const expandedCitation = groupMatched.find(
+					(c) => expandedKey === `${group.key}:${c.id}`,
+				);
+				const related = expandedCitation
+					? expandedCitation.trail.filter(
+							(item) => !matchedKeys.has(labelKey(item.label)),
+						)
+					: [];
+
 				return (
 					<div key={group.key} className="flex flex-col gap-1">
 						{group.claim && (
@@ -126,21 +146,15 @@ export function CitationChips({
 								{group.claim.text}
 							</p>
 						)}
-						{group.claim && (
-							/* The state that matters is per proposition: a global count cannot tell
-						   a lawyer which of these they can actually rely on. */
-							<p className="pl-3 text-[11px] text-neutral-400">
-								{groupMissing.length > 0 ? (
-									<span className="text-neutral-500">
-										<AlertCircle className="mr-1 inline h-3 w-3 align-[-2px]" />
-										Evidence incomplete · {groupMissing.length} source
-										{groupMissing.length === 1 ? "" : "s"} not located
-										{groupMatched.length > 0 &&
-											` · ${groupMatched.length} matched`}
-									</span>
-								) : (
-									`${groupMatched.length} source${groupMatched.length === 1 ? "" : "s"} matched`
-								)}
+						{/* The status line only earns its place when something needs flagging — a
+						    claim whose sources all matched needs no line at all; repeating "N
+						    matched" under every one of several claims reads as a system log. */}
+						{group.claim && groupMissing.length > 0 && (
+							<p className="pl-3 text-[11px] text-neutral-500">
+								<AlertCircle className="mr-1 inline h-3 w-3 align-[-2px]" />
+								Evidence incomplete · {groupMissing.length} source
+								{groupMissing.length === 1 ? "" : "s"} not located
+								{groupMatched.length > 0 && ` · ${groupMatched.length} matched`}
 							</p>
 						)}
 						<div
@@ -156,7 +170,8 @@ export function CitationChips({
 								</span>
 							))}
 							{groupMatched.map((citation) => {
-								const isExpanded = expandedId === citation.id;
+								const instanceKey = `${group.key}:${citation.id}`;
+								const isExpanded = expandedKey === instanceKey;
 								return (
 									<Tooltip key={citation.id}>
 										<TooltipTrigger asChild>
@@ -177,7 +192,7 @@ export function CitationChips({
 												<button
 													type="button"
 													onClick={() =>
-														setExpandedId(isExpanded ? null : citation.id)
+														setExpandedKey(isExpanded ? null : instanceKey)
 													}
 													aria-label={
 														isExpanded
@@ -203,66 +218,67 @@ export function CitationChips({
 								);
 							})}
 						</div>
+
+						{/* The inspect panel is the core loop's result — it renders directly under
+						    the row that triggered it, not in a separate list at the bottom of the
+						    block, so the chevron and its answer stay adjacent. */}
+						<AnimatePresence initial={false}>
+							{expandedCitation && (
+								<motion.div
+									key={expandedCitation.id}
+									initial={{ opacity: 0, height: 0 }}
+									animate={{ opacity: 1, height: "auto" }}
+									exit={{ opacity: 0, height: 0 }}
+									transition={{ duration: 0.15 }}
+									className={`overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 ${
+										group.claim ? "ml-3" : ""
+									}`}
+								>
+									<p className="px-3 py-2 font-serif text-[13px] text-neutral-600 italic leading-relaxed">
+										"{preview(expandedCitation.quote, EXPANDED_QUOTE_MAX)}"
+									</p>
+
+									{related.length > 0 && (
+										<div className="border-neutral-200/70 border-t px-3 py-2">
+											<p className="mb-1.5 font-medium text-[10px] text-neutral-400 uppercase tracking-wide">
+												Read alongside
+											</p>
+											<div className="flex flex-wrap gap-1.5">
+												{related.map((item) => (
+													<Tooltip key={`${item.kind}-${item.label}`}>
+														<TooltipTrigger asChild>
+															<button
+																type="button"
+																onClick={() =>
+																	jumpToTrailItem(expandedCitation, item)
+																}
+																className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:border-brand/30 hover:text-brand"
+															>
+																<span className="font-medium">
+																	{item.label}
+																</span>
+																<span className="text-neutral-400">
+																	{item.kind === "definition"
+																		? "defined term"
+																		: "cross-reference"}
+																	{item.page != null && ` · p.${item.page}`}
+																</span>
+															</button>
+														</TooltipTrigger>
+														<TooltipContent side="top" className="max-w-sm">
+															{preview(item.text, 200)}
+														</TooltipContent>
+													</Tooltip>
+												))}
+											</div>
+										</div>
+									)}
+								</motion.div>
+							)}
+						</AnimatePresence>
 					</div>
 				);
 			})}
-
-			<AnimatePresence initial={false}>
-				{matched.map((citation) => {
-					if (expandedId !== citation.id) return null;
-					// A related provision the model already cited itself is not "related" —
-					// it's a peer, and already a chip above.
-					const related = citation.trail.filter(
-						(item) => !matchedKeys.has(labelKey(item.label)),
-					);
-					return (
-						<motion.div
-							key={citation.id}
-							initial={{ opacity: 0, height: 0 }}
-							animate={{ opacity: 1, height: "auto" }}
-							exit={{ opacity: 0, height: 0 }}
-							transition={{ duration: 0.15 }}
-							className="overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50"
-						>
-							<p className="px-3 py-2 font-serif text-[13px] text-neutral-600 italic leading-relaxed">
-								"{preview(citation.quote)}"
-							</p>
-
-							{related.length > 0 && (
-								<div className="border-neutral-200/70 border-t px-3 py-2">
-									<p className="mb-1.5 font-medium text-[10px] text-neutral-400 uppercase tracking-wide">
-										Read alongside
-									</p>
-									<div className="flex flex-wrap gap-1.5">
-										{related.map((item) => (
-											<Tooltip key={`${item.kind}-${item.label}`}>
-												<TooltipTrigger asChild>
-													<button
-														type="button"
-														onClick={() => jumpToTrailItem(citation, item)}
-														className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:border-brand/30 hover:text-brand"
-													>
-														<span className="font-medium">{item.label}</span>
-														<span className="text-neutral-400">
-															{item.kind === "definition"
-																? "defined term"
-																: "cross-reference"}
-															{item.page != null && ` · p.${item.page}`}
-														</span>
-													</button>
-												</TooltipTrigger>
-												<TooltipContent side="top" className="max-w-sm">
-													{preview(item.text, 200)}
-												</TooltipContent>
-											</Tooltip>
-										))}
-									</div>
-								</div>
-							)}
-						</motion.div>
-					);
-				})}
-			</AnimatePresence>
 
 			{ungroupedUnresolved.length > 0 && (
 				<div className="rounded-lg border border-neutral-300 border-dashed px-3 py-2">

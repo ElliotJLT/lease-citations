@@ -19,9 +19,13 @@ body {
 
 /* Applied to pdf.js text-layer spans by lib/highlight.ts. Raw CSS rather than a Tailwind
    utility because it's added via classList.add on nodes pdf.js owns, outside Tailwind's
-   template scan. */
+   template scan.
+
+   rgba(0, 106, 135, ...) is #006a87, the brand teal — the same colour that marks matched
+   evidence everywhere else. The reader highlight was previously #ff6e30, the accent: exactly
+   the colour reserved for actions, on the one surface where a lawyer is reading, not acting. */
 .citation-highlight-mark {
-	background-color: rgba(255, 110, 48, 0.28);
+	background-color: rgba(0, 106, 135, 0.18);
 	border-radius: 2px;
 	transition: background-color 0.2s ease;
 }
