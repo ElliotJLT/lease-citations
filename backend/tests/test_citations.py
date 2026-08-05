@@ -58,6 +58,38 @@ class TestVerifiedQuotes:
         assert result.verified
         assert result.page == 1
 
+    def test_quote_spanning_a_page_break_does_not_splice_in_the_next_pages_furniture(
+        self,
+    ) -> None:
+        # A running header/footer repeated on every page — the shape `page_furniture()`
+        # actually detects (DOCUMENT above has none repeated, since each page's text is
+        # unique). This reproduces the live bug: (c) trails off, the page turns mid-clause,
+        # and the next page's masthead used to land inside the displayed quote.
+        document = """--- Page 1 ---
+Commercial Lease — 100 Bishopsgate
+PRIVATE & CONFIDENTIAL
+Page 1
+3.2.4 In determining the open market rent, the following matters shall be disregarded: (a) any
+improvement to the Premises carried out by
+
+--- Page 2 ---
+Commercial Lease — 100 Bishopsgate
+PRIVATE & CONFIDENTIAL
+Page 2
+the Tenant during the Term.
+"""
+        result = verify_quote(
+            "improvement to the Premises carried out by the Tenant during the Term", document
+        )
+        assert result.verified
+        assert result.page == 1
+        assert "Bishopsgate" not in result.quote
+        assert "PRIVATE" not in result.quote
+        assert "Page 2" not in result.quote
+        assert result.quote == (
+            "improvement to the Premises carried out by the Tenant during the Term"
+        )
+
 
 class TestHarmlessFormattingIsForgiven:
     """Variation the model introduces at the edge of a quotation, or that the PDF's layout

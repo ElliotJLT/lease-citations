@@ -11,7 +11,11 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_upload_size: int = 25 * 1024 * 1024  # 25MB
 
-    model_config = {"env_file": ".env"}
+    # `.env` also carries the Docker Compose service env (API_PORT, POSTGRES_*) — this process
+    # doesn't use them, but running natively means they arrive through the same file, not just
+    # as container env vars pydantic-settings would otherwise never see. Ignoring unknown keys
+    # is what keeps that shared file from crashing the app before it serves a request.
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

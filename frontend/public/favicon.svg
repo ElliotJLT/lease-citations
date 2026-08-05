@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+	<rect width="100" height="100" rx="22" fill="#006a87" />
+	<!-- Orbital's mark, unmodified path (viewBox 0 0 47.3 82), scaled and centred rather than
+	     redrawn — see OrbitalMark.tsx's own note on why an approximated logo is worse than none. -->
+	<g transform="translate(32.7 20) scale(0.7317)">
+		<path
+			d="M0,27.3V82l47.3-27.3V0L0,27.3z M31.6,45.6l-15.8,9.1V36.4l15.8-9.1V45.6z"
+			fill="#ff6e30"
+		/>
+	</g>
+</svg>

@@ -20,6 +20,9 @@ export interface Citation {
 	quote: string;
 	page: number | null;
 	verified: boolean;
+	/** Stable 1-based display index. The same citation can be marked more than once in the
+	 *  message body; it keeps this same number every time. */
+	number: number;
 	/** What this passage must be read with: its defined terms and cross-referenced clauses. */
 	trail: TrailItem[];
 }

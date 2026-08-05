@@ -8,6 +8,7 @@ import structlog
 from pydantic_ai import Agent
 
 from takehome.config import settings
+from takehome.services.markers import ClaimRef
 
 # Importing settings is what exports ANTHROPIC_API_KEY into the environment; pydantic-ai's
 # Anthropic client reads it when the Agent below is constructed. Bound explicitly so the
@@ -37,18 +38,19 @@ agent = Agent(
         "difference. Not finding something is a useful answer, not a failure.\n"
         "- Be concise and precise. Reference the clause or section you are relying on.\n\n"
         "EVIDENCE\n"
+        "- Citations are native to your answer, not a list bolted on afterwards. As you write, "
+        "place an inline marker immediately after each proposition a lawyer would need to "
+        "check on its own: `[[n]]`, where `n` is the 1-based position of the source in the "
+        "array you output at the end. Put it right after the full stop, separated by one "
+        "space — for example `...the higher of the passing rent or the open market rent. "
+        "[[2]] [[3]]`. If a proposition rests on more than one source, place their markers "
+        "next to each other like that. A sentence with nothing behind it gets no marker; do "
+        "not force one on just to have one.\n"
         f"- After your answer, output the line {SOURCES_SENTINEL} and then a JSON object with "
-        'two keys: "sources" and "claims".\n'
-        '- "sources" is an array of {"label": "...", "quote": "..."}. `label` is how a lawyer '
-        'would cite it ("Clause 3.2.1", "Schedule 3, paragraph 2"). `quote` is the passage '
-        "itself.\n"
-        '- "claims" is an array of {"text": "...", "sources": [0, 2]}. Each entry is one '
-        "proposition your answer asks the lawyer to rely on, written as a single plain "
-        "sentence, and the indices of the sources in the array above that support that "
-        "specific proposition.\n"
-        "- Break the answer into the propositions a lawyer would evaluate separately, and "
-        "attach each source to the proposition it actually supports rather than listing "
-        "everything against everything. Every source should appear under at least one claim.\n"
+        'one key, "sources": an array of {"label": "...", "quote": "..."}. `label` is how a '
+        'lawyer would cite it ("Clause 3.2.1", "Schedule 3, paragraph 2"). `quote` is the '
+        "passage itself. The position of each source in this array (counting from 1) is "
+        "exactly what your `[[n]]` markers refer to.\n"
         "- Quote the document's exact wording. Do not paraphrase, summarise, join separate "
         "passages, or correct apparent errors.\n"
         "- Write each quote on a single line: replace the line breaks the document wraps with "
@@ -63,9 +65,13 @@ agent = Agent(
         "- Every quote is checked automatically against the document. A quote that cannot be "
         "found is shown to the lawyer as unverified, which undermines the whole answer, so "
         "never guess at wording you are unsure of.\n"
-        "- If nothing in the document supports your answer, output an empty array. Do not cite "
-        "passages that merely sound relevant.\n"
-        "- Output nothing after the JSON array."
+        "- If nothing in the document supports your answer, output an empty array and write no "
+        "markers. Do not cite passages that merely sound relevant.\n"
+        "- Output nothing after the JSON object.\n\n"
+        "FORMAT\n"
+        '- Write in plain prose paragraphs, with simple "- " bullet points where a list is '
+        "genuinely clearer than prose. Nothing else: no headings, no numbered lists, no "
+        "tables, no markdown beyond that — the interface only renders this small subset."
     ),
 )
 
@@ -78,17 +84,11 @@ class TextDelta:
 
 
 @dataclass(frozen=True)
-class ClaimRef:
-    """One proposition the answer rests on, and the sources offered for it (by index)."""
-
-    text: str
-    source_indices: list[int]
-
-
-@dataclass(frozen=True)
 class CitationBlock:
-    """The model's evidence, still unverified: `(label, quote)` pairs and the claims
-    each was offered for. `claims` is empty when the model returns the older bare array."""
+    """The model's evidence, still unverified: `(label, quote)` pairs, plus whatever `claims`
+    a legacy-shaped JSON block happened to carry. `claims` is always empty under the current
+    prompt — the model no longer emits that key — so nothing downstream should rely on it;
+    it survives here only so a model that ignores the format change still parses cleanly."""
 
     items: list[tuple[str, str]]
     claims: list[ClaimRef]
@@ -202,9 +202,7 @@ def _read_claims(entries: object, source_count: int) -> list[ClaimRef]:
         candidates: list[object] = (
             list(raw_indices) if isinstance(raw_indices, list) else []  # type: ignore[arg-type]
         )
-        indices = [
-            i for i in candidates if isinstance(i, int) and 0 <= i < source_count
-        ]
+        indices = [i for i in candidates if isinstance(i, int) and 0 <= i < source_count]
         claims.append(ClaimRef(text=text.strip(), source_indices=indices))
     return claims
 
@@ -228,9 +226,7 @@ def parse_citation_block(raw: str) -> CitationBlock:
     if isinstance(parsed, dict):
         body: dict[str, object] = parsed  # type: ignore[assignment]
         sources = _read_sources(body.get("sources"))
-        return CitationBlock(
-            items=sources, claims=_read_claims(body.get("claims"), len(sources))
-        )
+        return CitationBlock(items=sources, claims=_read_claims(body.get("claims"), len(sources)))
 
     return CitationBlock(items=[], claims=[])
 

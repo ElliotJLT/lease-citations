@@ -1,4 +1,4 @@
-import { FileText, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Citation, Message } from "../types";
 import { ChatInput } from "./ChatInput";
@@ -14,34 +14,31 @@ interface ChatWindowProps {
 	hasDocument: boolean;
 	conversationId: string | null;
 	title: string | null;
-	documentName: string | null;
+	/** The one citation currently selected app-wide — threaded down so the right inline marker,
+	 *  in whichever message it appears, renders as selected. */
+	selectedCitationId: string | null;
 	onSend: (content: string) => void;
 	onUpload: (file: File) => void;
 	onCitationJump: (citation: Citation) => void;
 }
 
 /** The card the conversation lives in, so every state below shares one frame. */
+/** The card the conversation lives in, so every state below shares one frame. The document
+ *  name used to repeat here too — the reader panel already carries it beside the filename
+ *  icon, so this header now only says which conversation you're in. */
 function ChatCard({
 	title,
-	documentName,
 	children,
 }: {
 	title: string | null;
-	documentName: string | null;
 	children: React.ReactNode;
 }) {
 	return (
 		<main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-card">
-			<header className="flex h-12 flex-shrink-0 items-center justify-between gap-3 border-b border-neutral-100 px-4">
+			<header className="flex h-12 flex-shrink-0 items-center border-b border-neutral-100 px-4">
 				<p className="truncate text-sm font-semibold text-neutral-800">
 					{title ?? "Document Q&A"}
 				</p>
-				{documentName && (
-					<span className="flex min-w-0 flex-shrink-0 items-center gap-1.5 text-xs text-neutral-400">
-						<FileText className="h-3.5 w-3.5" />
-						<span className="max-w-[220px] truncate">{documentName}</span>
-					</span>
-				)}
 			</header>
 			{children}
 		</main>
@@ -57,7 +54,7 @@ export function ChatWindow({
 	hasDocument,
 	conversationId,
 	title,
-	documentName,
+	selectedCitationId,
 	onSend,
 	onUpload,
 	onCitationJump,
@@ -76,7 +73,7 @@ export function ChatWindow({
 	// No conversation selected
 	if (!conversationId) {
 		return (
-			<ChatCard title={null} documentName={null}>
+			<ChatCard title={null}>
 				<div className="flex flex-1 items-center justify-center">
 					<p className="text-sm text-neutral-400">
 						Select a conversation, or start a new one
@@ -89,7 +86,7 @@ export function ChatWindow({
 	// Loading messages
 	if (loading) {
 		return (
-			<ChatCard title={title} documentName={documentName}>
+			<ChatCard title={title}>
 				<div className="flex flex-1 items-center justify-center">
 					<Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
 				</div>
@@ -100,53 +97,63 @@ export function ChatWindow({
 	// Empty conversation - show upload prompt
 	if (messages.length === 0 && !streaming) {
 		return (
-			<ChatCard title={title} documentName={documentName}>
-				<div className="flex flex-1 items-center justify-center">
-					{hasDocument ? (
-						<p className="text-sm text-neutral-500">
-							Document uploaded. Ask a question to get started.
-						</p>
-					) : (
-						<EmptyState onUpload={onUpload} />
-					)}
+			<ChatCard title={title}>
+				{/* Same centred column as the populated view, so the input bar doesn't jump
+				    width the moment the first message lands. */}
+				<div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+					<div className="flex flex-1 items-center justify-center">
+						{hasDocument ? (
+							<p className="text-sm text-neutral-500">
+								Document uploaded. Ask a question to get started.
+							</p>
+						) : (
+							<EmptyState onUpload={onUpload} />
+						)}
+					</div>
+					<ChatInput
+						onSend={onSend}
+						onUpload={onUpload}
+						disabled={streaming}
+						hasDocument={hasDocument}
+					/>
 				</div>
-				<ChatInput
-					onSend={onSend}
-					onUpload={onUpload}
-					disabled={streaming}
-					hasDocument={hasDocument}
-				/>
 			</ChatCard>
 		);
 	}
 
 	return (
-		<ChatCard title={title} documentName={documentName}>
+		<ChatCard title={title}>
 			{error && (
 				<div className="mx-4 mt-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
 					{error}
 				</div>
 			)}
 
-			<div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4">
-				<div className="mx-auto max-w-3xl space-y-1">
-					{messages.map((message) => (
-						<MessageBubble
-							key={message.id}
-							message={message}
-							onCitationJump={onCitationJump}
-						/>
-					))}
-					{streaming && <StreamingBubble content={streamingContent} />}
+			{/* The thread and the input share one centred, capped column, rather than a narrow
+			    message list stranded inside a full-bleed card — at wide viewports that read as
+			    a dead gutter down the middle instead of a page with margins. */}
+			<div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+				<div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4">
+					<div className="space-y-1">
+						{messages.map((message) => (
+							<MessageBubble
+								key={message.id}
+								message={message}
+								onCitationJump={onCitationJump}
+								selectedCitationId={selectedCitationId}
+							/>
+						))}
+						{streaming && <StreamingBubble content={streamingContent} />}
+					</div>
 				</div>
-			</div>
 
-			<ChatInput
-				onSend={onSend}
-				onUpload={onUpload}
-				disabled={streaming}
-				hasDocument={hasDocument}
-			/>
+				<ChatInput
+					onSend={onSend}
+					onUpload={onUpload}
+					disabled={streaming}
+					hasDocument={hasDocument}
+				/>
+			</div>
 		</ChatCard>
 	);
 }
