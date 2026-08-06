@@ -39,15 +39,18 @@ work, respects their duty, and answers their documented fear.
 
 ## What good looks like
 
-The 60-second path: ask a real question → answer streams → citation chips appear beneath it
-(`Clause 3.2.1 · p.4 ✓`, where the tick means the backend found this exact quote in the document) →
-click a chip → the reader jumps to the page and highlights the passage → chevron unfolds the
-verbatim quote inline. Chips are dual-mode: hovering previews the opening of the quote (is
-this worth the click?), clicking commits to the document. Cheap glance, cheap jump. Ask a question the document doesn't answer → clean refusal, zero chips,
-and an honest "no supporting passages" line where the old app showed "3 sources cited".
+The 60-second path: ask a real question → the answer streams with a numbered marker appearing
+inline at the end of each proposition → hover a marker to preview the clause and its quote (is
+this worth the click?) → click it and the reader jumps to the page, highlights the passage, and
+opens the inspector. Cheap glance, cheap jump. Ask a question the document doesn't answer →
+clean refusal, no markers, and an honest "No supporting provision identified" where the old app
+showed "3 sources cited".
 
-Done means: the rent-review question yields ≥3 verified chips each jumping to the right page;
-the asbestos question yields zero chips and the honest empty state; the verifier has tests;
+Markers are the only citation surface: evidence sits against the proposition it supports, never
+in a separate block beneath the answer that a lawyer has to reconcile back to the prose.
+
+Done means: the rent-review question yields ≥3 matched markers each jumping to the right page;
+the asbestos question yields zero markers and the honest empty state; the verifier has tests;
 `just check` passes; the old badge is deleted.
 
 ## Product rules
@@ -59,7 +62,7 @@ the asbestos question yields zero chips and the honest empty state; the verifier
 - "The document doesn't say" is a first-class result, not a failure state.
 - Evidence is judged on completeness as well as support. A legal position usually rests on
   more than the sentence that states it: the operative clause, a definition, a condition or
-  exception elsewhere. The prompt asks for that full set, and the chips make the composition
+  exception elsewhere. The prompt asks for that full set, and the markers make the composition
   visible.
 - The interface renders only trust states it can check: quote found, quote not found, no
   evidence offered. The model's account of its own reasoning ("inferred", "confident") is
@@ -72,17 +75,17 @@ the asbestos question yields zero chips and the honest empty state; the verifier
 - Palette is sampled from orbital.tech, not invented: `ground` #ddf8ff (pale ice, the surface
   the cards sit on), `brand` #006a87 (deep teal), `accent` #ff6e30 (orange). Reading surfaces
   stay white, since the ground is a frame, never something text sits on.
-- Colour carries one meaning each: teal is structure and verified evidence, orange is primary
+- Colour carries one meaning each: teal is structure and matched evidence, orange is primary
   actions and nothing else. The one exception is the logo mark, which reproduces the brand's
-  own orange-on-teal pairing: identity rather than an action. An unverified citation is deliberately colourless (a dashed
+  own orange-on-teal pairing: identity rather than an action. A not-located citation is deliberately colourless (a dashed
   border and an icon) so it reads as "unconfirmed", not as an error, and never competes with
   the accent.
-- Verified vs unverified is structural (icon + border), never colour alone.
+- Matched vs not-located is structural (icon + border), never colour alone.
 - Verbatim quotes render in IBM Plex Serif italic; serif is reserved for words the document
   actually says. UI copy stays sans.
-- Panels hand width to each other: sidebar collapses to a rail, reader auto-opens on citation
+- Panels hand width to each other: sidebar collapses to a rail, reader auto-opens on marker
   click. The layout serves the ask→verify journey and changes for no other reason.
-- Every state designed: streaming, no-citations, unverified, empty, loading, failure.
+- Every state designed: streaming, no-citations, not-located, empty, loading, failure.
 
 ## Engineering rules
 
@@ -95,9 +98,9 @@ the asbestos question yields zero chips and the honest empty state; the verifier
 
 | Signal | Reads as |
 |---|---|
-| Citation click/expand rate | Are lawyers inspecting evidence? (early trust behaviour) |
-| % answers with ≥1 verified citation | Is output checkable? (quality floor) |
-| Unverified-citation rate | Grounding failures surfaced per answer, an alarm |
+| Marker click/inspect rate | Are lawyers inspecting evidence? (early trust behaviour) |
+| % answers with ≥1 matched citation | Is output checkable? (quality floor) |
+| Not-located rate | Grounding failures surfaced per answer, an alarm |
 | Claim+citation copy/export | The job proxy: answers entering the work product |
 | Questions per document, return sessions | Deepening reliance |
 
