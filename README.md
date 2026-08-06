@@ -2,7 +2,7 @@
 
 ## Submission
 
-**Walkthrough:** https://share.descript.com/view/RoxgwhVnXbO
+**Walkthrough:** https://www.loom.com/share/7ec2e2bd55444a9087e0b6c3dbb8948c
 **Part 1:** [`PART1.md`](PART1.md) · **Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
 
 The baseline's "N sources cited" badge is a regex over the model's own reply — it counts
