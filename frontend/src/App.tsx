@@ -101,6 +101,30 @@ export default function App() {
 		setReaderCollapsed(false);
 	}, []);
 
+	// A selected source is a claim about what the lawyer is looking at right now, so it has to
+	// end when they look away. Clicking anywhere that isn't citation furniture, or pressing
+	// Escape, drops the selection: the marker goes back to teal, the highlight lifts, the
+	// inspector closes. The reader stays on the page it's on — the lawyer navigated there and
+	// nothing about dismissing a source should take that back.
+	const dismissCitation = useCallback(() => setActiveCitation(null), []);
+
+	useEffect(() => {
+		const onPointerDown = (event: PointerEvent) => {
+			const target = event.target as HTMLElement | null;
+			if (target?.closest("[data-citation-ui]")) return;
+			dismissCitation();
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") dismissCitation();
+		};
+		window.addEventListener("pointerdown", onPointerDown);
+		window.addEventListener("keydown", onKeyDown);
+		return () => {
+			window.removeEventListener("pointerdown", onPointerDown);
+			window.removeEventListener("keydown", onKeyDown);
+		};
+	}, [dismissCitation]);
+
 	return (
 		<TooltipProvider delayDuration={200}>
 			{/* Three cards on a ground, rather than panels butted together: each region reads as
