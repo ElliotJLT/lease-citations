@@ -119,6 +119,9 @@ Two separate decisions, deliberately made:
   works if the spec is genuinely complete, which is the real argument for writing it down: the
   test of these docs is whether an agent with no memory of the discussion can build the right
   thing from them.
+- **A second model reviews the first.** Codex made a final pass over the implementation and the
+  tests. A model reviewing its own output is the self-report problem this build exists to
+  remove; a different one at least fails differently.
 - **Runtime (what the product calls).** The app keeps its existing Haiku 4.5 for chat and
   citation extraction. The citation verifier is a string match against the document and
   doesn't trust the model, so model tier is a cost/latency knob here, not a trust knob.

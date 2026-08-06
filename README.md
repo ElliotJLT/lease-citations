@@ -2,6 +2,9 @@
 
 ## Submission
 
+**Walkthrough:** https://share.descript.com/view/RoxgwhVnXbO
+**Part 1:** [`PART1.md`](PART1.md) · **Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
+
 The baseline's "N sources cited" badge is a regex over the model's own reply — it counts
 clause numbers in the answer text, never checks them against the document, and rewards exactly
 the answers a lawyer most needs to doubt (`docs/audit.md`, F1). This build replaces it with
