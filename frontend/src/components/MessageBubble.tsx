@@ -84,6 +84,7 @@ function SourcesFooter({
 			<span className="mx-1.5">·</span>
 			<button
 				type="button"
+				data-citation-ui
 				onClick={() => setExpanded((open) => !open)}
 				className="underline decoration-neutral-300 decoration-dotted underline-offset-2 hover:text-neutral-600 hover:decoration-neutral-400"
 			>
@@ -103,6 +104,7 @@ function SourcesFooter({
 								{citation.verified ? (
 									<button
 										type="button"
+										data-citation-ui
 										onClick={() => onSelect(citation)}
 										className={`font-medium underline-offset-2 hover:underline ${
 											selectedCitationId === citation.id

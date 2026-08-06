@@ -44,6 +44,7 @@ export function CitationMarker({
 					    this was offered for, so it has to be reachable by mouse and keyboard. */}
 					<button
 						type="button"
+						data-citation-ui
 						onClick={() => onSelect(citation)}
 						aria-label={`Source ${citation.number}: ${citation.label} — not located in this document`}
 						className={cn(
@@ -76,6 +77,7 @@ export function CitationMarker({
 			<TooltipTrigger asChild>
 				<button
 					type="button"
+					data-citation-ui
 					onClick={() => onSelect(citation)}
 					aria-label={`Source ${citation.number}: ${citation.label}${
 						citation.page != null ? `, page ${citation.page}` : ""

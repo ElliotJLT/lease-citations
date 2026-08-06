@@ -380,6 +380,20 @@ export function DocumentViewer({
 		pendingTargetRef.current = null;
 	}, []);
 
+	// Dismissing the selection lifts the highlight and closes the inspector, and deliberately
+	// leaves `currentPage` alone: the lawyer is reading that page now, and yanking them back
+	// to where they were before they followed the source would be its own bug. Any in-flight
+	// target is dropped too, or a highlight scheduled just before the dismiss would land after
+	// it and paint a passage nothing is pointing at any more.
+	useEffect(() => {
+		if (activeCitation) return;
+		pendingTargetRef.current = null;
+		const wrapper = pageWrapperRef.current;
+		if (wrapper) clearHighlights(wrapper);
+		setAnchorCitation(null);
+		setActiveTrailItem(null);
+	}, [activeCitation]);
+
 	// focusToken changes on every click, including re-clicking the same citation, which
 	// activeCitation's identity alone would not catch.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: focusToken is the deliberate trigger; activeCitation is read through it, not watched directly.
@@ -672,7 +686,10 @@ export function DocumentViewer({
 			    a subtle internal divider, rather than two separately-bordered blocks — so the
 			    bottom of the reader reads as one unit that resizes the page above it. */}
 			{anchorCitation && !inspectorDismissed && (
-				<div className="flex flex-shrink-0 flex-col border-[#2D6984]/20 border-t bg-[#E2F7FE]">
+				<div
+					data-citation-ui
+					className="flex flex-shrink-0 flex-col border-[#2D6984]/20 border-t bg-[#E2F7FE]"
+				>
 					<CitationInspector
 						citation={anchorCitation}
 						usedInCount={usedInCount}
