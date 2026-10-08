@@ -44,7 +44,7 @@ of the tool gone. → Citations become clickable evidence: chip → page → hig
 
 ## F3 — One document per conversation, enforced against the user's job
 
-`services/document.py` raises if a conversation already has a document, while the brief's
+`services/document.py` raises if a conversation already has a document, while the product's
 users handle dozens of documents per deal. The schema already models the right thing
 (`Conversation.documents` is a list), so the limit is policy, not structure. → Out of scope
 for this build, but the citation model is designed to extend (a citation gains a `document_id`
@@ -66,7 +66,7 @@ doesn't declare (`API_PORT`, `POSTGRES_*`). With no `uv.lock` committed, the bac
 pydantic-settings fresh, and current releases forbid extra keys, so `just setup` → `just dev`
 dies with validation errors before serving a request. Dependency drift: the frontend lockfile
 is committed, the Python one isn't. → Fixed in this build (tolerate extra env keys, commit
-`uv.lock`) so the reviewer's first run works.
+`uv.lock`) so a first run works.
 
 ## F6 — Two sources of truth for the database URL
 

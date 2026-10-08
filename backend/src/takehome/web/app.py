@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
-app = FastAPI(title="Orbital Document Q&A", lifespan=lifespan)
+app = FastAPI(title="Lease citations", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

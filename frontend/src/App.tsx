@@ -129,7 +129,7 @@ export default function App() {
 		<TooltipProvider delayDuration={200}>
 			{/* Three cards on a ground, rather than panels butted together: each region reads as
 			    its own surface, and folding one away leaves the others intact. The ground is
-			    Orbital's own pale ice; reading surfaces stay white. */}
+			    the pale ice ground; reading surfaces stay white. */}
 			<div className="flex h-screen gap-4 bg-ground p-4">
 				<ChatSidebar
 					conversations={conversations}

@@ -135,14 +135,14 @@ Seven limitations.
 
 ## Why this over the other options
 
-Multi-document support was the loudest alternative, since the brief's users handle dozens of
+Multi-document support was the loudest alternative, since commercial property lawyers handle dozens of
 documents per deal and the app enforces one. I chose against it because it multiplies an
 answer the lawyer still can't check: more scope on top of an unverifiable core. Citations are
 the right first move *because* they're the foundation multi-doc needs: a citation gains a
 `document_id` and the same marker → page → highlight loop works across a deal room. A broader
 UI overhaul I ruled out as polish without a thesis, and chunking/RAG solves a scale problem
 these document sizes don't have yet. I did fix one thing off-thesis: the shipped
-`.env.example` crashes the backend on current dependency resolutions (F5), and a reviewer's
+`.env.example` crashes the backend on current dependency resolutions (F5), and anyone's
 first `just dev` failing is worth two lines and a lockfile.
 
 One item that sat in this table in an earlier draft has since shipped: inline per-sentence
@@ -157,7 +157,7 @@ markers, in the streamed answer's own prose rather than a grouped block below it
 | Risk scoring, drafting, redlining, agentic review | Different jobs; none reduce verification cost |
 
 Answers beside a document with highlighted sources is the
-grammar of legal AI, Orbital's products included, and it's the starter's own layout. That's
+grammar of legal AI, the leading products included, and it's the baseline's own layout. That's
 deliberate: the category converged on this shape because it matches how lawyers check work.
 The contribution is the mechanism underneath it: nothing renders as
 evidence unless the server has located it in the document, absence is rendered honestly, and

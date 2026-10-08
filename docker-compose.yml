@@ -2,15 +2,15 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: orbital
-      POSTGRES_PASSWORD: orbital
-      POSTGRES_DB: orbital_takehome
+      POSTGRES_USER: lease
+      POSTGRES_PASSWORD: lease
+      POSTGRES_DB: lease_citations
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U orbital -d orbital_takehome"]
+      test: ["CMD-SHELL", "pg_isready -U lease -d lease_citations"]
       interval: 2s
       timeout: 5s
       retries: 10
@@ -29,7 +29,7 @@ services:
       - ./alembic.ini:/app/alembic.ini
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://orbital:orbital@db:5432/orbital_takehome
+      DATABASE_URL: postgresql+asyncpg://lease:lease@db:5432/lease_citations
     depends_on:
       db:
         condition: service_healthy

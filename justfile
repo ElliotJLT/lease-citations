@@ -8,7 +8,7 @@ default:
 
 # Initial project setup — one command to get going
 setup:
-    @echo "Setting up orbital-takehome..."
+    @echo "Setting up lease-citations..."
     @cp -n .env.example .env 2>/dev/null || true
     @mkdir -p uploads
     docker compose build
@@ -65,7 +65,7 @@ db-upgrade:
 
 # Open psql shell
 db-shell:
-    docker compose exec db psql -U orbital orbital_takehome
+    docker compose exec db psql -U lease lease_citations
 
 # =============================================================================
 # Code Quality

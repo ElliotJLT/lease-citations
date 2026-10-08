@@ -1,8 +1,8 @@
-# Orbital — Product Engineering Take-Home
+# Lease citations: answers a property lawyer can check
 
-## Submission
+## What this is
 
-**Part 1:** [`PART1.md`](PART1.md) · **Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
+**Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
 
 **The problem.** The baseline's "N sources cited" badge is a regex over the model's own reply.
 It counts clause numbers in the answer text, never checks them against the document, and so
