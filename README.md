@@ -1,9 +1,8 @@
-# Orbital — Product Engineering Take-Home
+# Lease citations: answers a property lawyer can check
 
-## Submission
+## What this is
 
-**Walkthrough:** https://www.loom.com/share/7ec2e2bd55444a9087e0b6c3dbb8948c
-**Part 1:** [`PART1.md`](PART1.md) · **Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
+**Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
 
 **The problem.** The baseline's "N sources cited" badge is a regex over the model's own reply.
 It counts clause numbers in the answer text, never checks them against the document, and so
@@ -57,14 +56,6 @@ Full reasoning in `DECISIONS.md`; the testing behind it in `docs/audit.md`.
 
 ---
 
-Welcome! This is a take-home assessment for a Product Engineering role at Orbital.
-
-You've been given a working baseline application: a document Q&A tool for commercial real estate lawyers. Users upload legal documents (leases, title reports, environmental assessments) and ask questions about them. The AI assistant answers questions grounded in the document content.
-
-The app works, but it has limitations. Your job is to extend it.
-
----
-
 ## Setup
 
 ### Prerequisites
@@ -87,7 +78,6 @@ just setup
 ```
 ANTHROPIC_API_KEY=your_key_here
 ```
-   We've provided an API key in the task email. You can also use your own.
 
 4. Start everything:
 ```

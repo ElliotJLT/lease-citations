@@ -1,4 +1,4 @@
-# CLAUDE.md — Orbital take-home
+# CLAUDE.md — lease citations
 
 Document Q&A for commercial real estate lawyers doing due diligence. This file is the product
 spec and the working rules in one, binding on every change, human- or agent-authored.
@@ -72,7 +72,7 @@ the asbestos question yields zero markers and the honest empty state; the verifi
 ## Design rules
 
 - Extend the app's existing language: IBM Plex, hairline borders, no generic AI aesthetics.
-- Palette is sampled from orbital.tech, not invented: `ground` #ddf8ff (pale ice, the surface
+- Palette is fixed, not invented: `ground` #ddf8ff (pale ice, the surface
   the cards sit on), `brand` #006a87 (deep teal), `accent` #ff6e30 (orange). Reading surfaces
   stay white, since the ground is a frame, never something text sits on.
 - Colour carries one meaning each: teal is structure and matched evidence, orange is primary

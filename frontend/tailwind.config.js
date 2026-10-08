@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Sampled from orbital.tech — their own light surface, not a re-theme.
+        // A fixed light surface, not a re-theme.
         ground: "#ddf8ff",   // pale ice; the ground the cards sit on
         brand: {
           DEFAULT: "#006a87", // deep teal — structure, and the colour of verified evidence

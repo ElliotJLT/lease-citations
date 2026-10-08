@@ -4,7 +4,7 @@ import { useState } from "react";
 import { preview } from "../lib/citations";
 import type { Citation, Claim, Message } from "../types";
 import { AnswerBody } from "./AnswerBody";
-import { OrbitalMark } from "./OrbitalMark";
+import { BrandMark } from "./BrandMark";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface MessageBubbleProps {
@@ -187,7 +187,7 @@ export function MessageBubble({
 			className="flex gap-3 py-1.5"
 		>
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<OrbitalMark className="h-5 w-auto text-accent" />
+				<BrandMark className="h-5 w-auto text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				<AnswerBody
@@ -226,7 +226,7 @@ export function StreamingBubble({ content }: StreamingBubbleProps) {
 	return (
 		<div className="flex gap-3 py-1.5">
 			<div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand">
-				<OrbitalMark className="h-5 w-auto text-accent" />
+				<BrandMark className="h-5 w-auto text-accent" />
 			</div>
 			<div className="min-w-0 max-w-[80%]">
 				{content ? (

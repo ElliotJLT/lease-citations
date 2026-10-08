@@ -24,7 +24,7 @@ import type { Citation, Claim, Document, TrailItem } from "../types";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-// Orbital's evidence-surface palette: navy for matched structure and text, sky for the
+// The evidence-surface palette: navy for matched structure and text, sky for the
 // resting surface, orange for whatever the lawyer is currently acting on. Applied as literal values (not the
 // app's existing `brand`/`accent` tokens) because this panel is being tuned independently —
 // see DECISIONS.md before promoting these into the shared token set.
