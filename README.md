@@ -1,6 +1,8 @@
-# Orbital — Product Engineering Take-Home
+# lease-citations
 
-## Submission
+Citations a property lawyer can check in one click: every quote is located in the document before it renders as evidence.
+
+## Overview
 
 **Walkthrough:** https://www.loom.com/share/7ec2e2bd55444a9087e0b6c3dbb8948c
 **Part 1:** [`PART1.md`](PART1.md) · **Reasoning:** [`DECISIONS.md`](DECISIONS.md) · **Baseline audit:** [`docs/audit.md`](docs/audit.md)
@@ -54,14 +56,6 @@ Full reasoning in `DECISIONS.md`; the testing behind it in `docs/audit.md`.
    back not located, because the model joined wording from two separate passages into one quote
    and the verifier declined to accept it. Selecting that marker opens the inspector on the
    proposition it affects and says so.
-
----
-
-Welcome! This is a take-home assessment for a Product Engineering role at Orbital.
-
-You've been given a working baseline application: a document Q&A tool for commercial real estate lawyers. Users upload legal documents (leases, title reports, environmental assessments) and ask questions about them. The AI assistant answers questions grounded in the document content.
-
-The app works, but it has limitations. Your job is to extend it.
 
 ---
 
@@ -123,3 +117,11 @@ We've included sample legal documents in `sample-docs/` for testing.
 - `just db-shell` — Open a psql shell
 - `just shell-backend` — Shell into backend container
 - `just logs-backend` — Tail backend logs
+
+## Background
+
+This started as a Product Engineering take-home for Orbital. The brief, as given:
+
+> You've been given a working baseline application: a document Q&A tool for commercial real estate lawyers. Users upload legal documents (leases, title reports, environmental assessments) and ask questions about them. The AI assistant answers questions grounded in the document content.
+>
+> The app works, but it has limitations. Your job is to extend it.
